@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "approximate-riemann-solver"
+version = "1.0.0"
+description = "Exact and approximate (Roe) Riemann solvers for the 1-D Euler equations"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Mauro Rodriguez Jr.", email = "mauro_rodriguez@brown.edu" },
+]
+keywords = [
+    "riemann-solver", "euler-equations", "godunov", "roe-solver",
+    "computational-fluid-dynamics", "tvd", "shock-tube",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "numpy>=1.22",
+]
+
+[project.optional-dependencies]
+# Numba is optional: without it every kernel still runs, just ~100x slower.
+fast = ["numba>=0.57"]
+plot = ["matplotlib>=3.5"]
+test = ["pytest>=7.0"]
+all = ["numba>=0.57", "matplotlib>=3.5", "pytest>=7.0"]
+
+[project.scripts]
+riemann = "riemann.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/mrodrig6/approximate_riemann_solver"
+Documentation = "https://github.com/mrodrig6/approximate_riemann_solver/blob/master/docs/index.md"
+
+[tool.setuptools]
+packages = ["riemann"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

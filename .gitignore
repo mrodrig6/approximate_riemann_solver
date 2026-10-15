@@ -1,52 +1,29 @@
-# Prerequisites
-*.d
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Test / tooling caches
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Linker output
-*.ilk
-*.map
-*.exp
+# Numba
+.numba_cache/
 
-# Precompiled Headers
-*.gch
-*.pch
+# Figures written by the examples into the working directory.
+# (Figures committed under docs/figures/ are explicitly re-included below.)
+*.png
+*.pdf
+!docs/figures/*.png
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
