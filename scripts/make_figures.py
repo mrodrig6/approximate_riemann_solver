@@ -248,7 +248,7 @@ def figure_convergence():
 
 
 def figure_air_shock_tube():
-    """The dimensional (SI) shock-tube case from the original MATLAB driver."""
+    """The dimensional (SI) shock-tube case."""
     prob = get_problem("air_shock_tube")
     exact = solve_exact(
         prob.gamma, prob.left, prob.right, prob.t_end, n=2000,

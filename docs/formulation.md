@@ -150,11 +150,11 @@ $$f_{K}'(p) = \left[\frac{A_{K}}{B_{K} + p}\right]^{1/2}\left[1 - \frac{p - p_{K
 
 $$f_{K}'(p) = \frac{1}{\rho_{K} a_{K}}\left(\frac{p}{p_{K}}\right)^{-\frac{\gamma + 1}{2\gamma}} \qquad (p \le p_{K}, \text{ rarefaction}).$$
 
-> **Note the exponent $-(\gamma+1)/(2\gamma)$ in the rarefaction derivative.**
-> The MATLAB code this package was ported from used $-(\gamma-1)/(2\gamma)$.
-> With the wrong derivative Newton degrades to a first-order fixed-point
-> iteration: it still converged for Sod's problem, but slowly and only from a
-> fortunate starting guess. See [porting-notes.md](porting-notes.md).
+> **Note the exponent $-(\gamma+1)/(2\gamma)$ in the rarefaction derivative**,
+> not $-(\gamma-1)/(2\gamma)$. With the wrong exponent Newton degrades to a
+> first-order fixed-point iteration: it still finds the root, just slowly and
+> only from a fortunate starting guess, so the derivative is checked against a
+> finite difference in the test suite.
 
 ### The initial guess
 
@@ -241,5 +241,4 @@ precisely where Roe's approximate solver needs an entropy fix — see
 
 ---
 
-**Next:** [Roe's approximate Riemann solver](roe-solver.md) ·
-[Numerical flux functions](flux-functions.md)
+**Next:** [Numerical flux functions](flux-functions.md)

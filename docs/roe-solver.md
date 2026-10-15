@@ -3,8 +3,12 @@
 > Reference: E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid
 > Dynamics*, 3rd ed., Springer 2009 — **Chapter 11** (the Roe approximate
 > Riemann solver), §11.2 (the linearisation and the Roe averages), §11.3
-> (the entropy fix), §11.4 (limitations). Chapter 6 for the finite-volume
-> framework the flux is used in.
+> (the entropy fix), §11.4 (limitations).
+>
+> Roe is one of the six fluxes catalogued in
+> [flux-functions.md](flux-functions.md); it gets its own page because the
+> linearisation takes some setting up, and because its eigenstructure is what
+> the second-order correction uses for *every* flux.
 
 ---
 
@@ -157,9 +161,10 @@ $\lambda_{1}^{*} > 0$, which forces $\lambda_{3}^{*} > 0$ as well. The
 implementation exploits this, and folds the right-transonic branch into the
 left-based form by setting
 $\tilde{\lambda}^{-}_{3} = \tilde{\lambda}_{3} - \bar{\lambda}_{3}$, so a
-single code path produces the flux in every case. (The MATLAB original used
-$\mathbf{F}(\mathbf{U}_{L})$ rather than $\mathbf{F}(\mathbf{U}_{R})$ in the
-right-transonic branch — see [porting-notes.md](porting-notes.md).)
+single code path produces the flux in every case. Note that the
+right-transonic branch is built from $\mathbf{F}(\mathbf{U}_{R})$, not
+$\mathbf{F}(\mathbf{U}_{L})$; using the left flux there gives a locally
+inconsistent result.
 
 ---
 
@@ -203,27 +208,6 @@ the Roe flux, and `test_hllc_solves_the_problem_roe_cannot` for the remedy.
 
 ---
 
-## 6. The finite-volume driver
-
-The flux is used in the standard explicit conservative update (Toro Sec. 6.2):
-
-$$\mathbf{U}_{i}^{\,n+1} = \mathbf{U}_{i}^{\,n} - \frac{\Delta t}{\Delta x}\left[\mathbf{F}_{i+1/2} - \mathbf{F}_{i-1/2}\right].$$
-
-**Time step.** Set by the CFL condition (Toro §6.4) using the maximum signal
-speed over the grid,
-
-$$S_{\max} = \max_{i}\left(|u_{i}| + a_{i}\right), \qquad \Delta t = \frac{C_{\text{cfl}}\,\Delta x}{S_{\max}},$$
-
-truncated so the run lands exactly on the output time. Note $|u| + a$, not
-$|u + a|$: the latter misses the left-going family when $u < 0$, and was a bug
-in the MATLAB original.
-
-**Boundaries.** Two transmissive (zero-gradient) ghost cells per side
-(Toro Sec. 6.3). Two, not one, because the flux limiter of
-[tvd-extension.md](tvd-extension.md) reads the wave strengths at the interface
-one further upwind.
-
 ---
 
-**Next:** [Numerical flux functions](flux-functions.md) ·
-[The second-order TVD extension](tvd-extension.md)
+**Next:** [The finite-volume scheme](finite-volume-scheme.md)

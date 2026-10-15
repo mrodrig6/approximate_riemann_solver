@@ -1,14 +1,39 @@
-# Second-order accuracy and TVD flux limiters
+# The finite-volume scheme
 
 > Reference: E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid
-> Dynamics*, 3rd ed., Springer 2009 — **Chapter 13** (high-order and TVD
-> methods for scalar equations), §13.8 for the flux-limiter form and the
-> limiter functions; **Chapter 14**, §14.4 for the extension to nonlinear
-> systems and the wave-by-wave application to the Roe flux.
+> Dynamics*, 3rd ed., Springer 2009 — **Chapter 6** (the conservative update,
+> boundary conditions and the CFL condition), **Chapter 13** §13.8 and
+> **Chapter 14** §14.4 (the flux-limited second-order extension).
+
+This page covers everything between the numerical flux and the answer: how
+the flux is used to advance the solution, how the time step and boundaries
+are set, and how the scheme is lifted from first to second order.
 
 ---
 
-## 1. The problem with first order
+## 1. The conservative update
+
+Whichever flux of [flux-functions.md](flux-functions.md) is chosen, it enters
+the same explicit conservative update (Toro Sec. 6.2):
+
+$$\mathbf{U}_{i}^{\,n+1} = \mathbf{U}_{i}^{\,n} - \frac{\Delta t}{\Delta x}\left[\mathbf{F}_{i+1/2} - \mathbf{F}_{i-1/2}\right].$$
+
+**Time step.** Set by the CFL condition (Toro §6.4) from the maximum signal
+speed on the grid,
+
+$$S_{\max} = \max_{i}\left(|u_{i}| + a_{i}\right), \qquad \Delta t = \frac{C_{\text{cfl}}\,\Delta x}{S_{\max}},$$
+
+truncated so the run lands exactly on the output time rather than
+overshooting it. Note $|u| + a$, not $|u + a|$: only the former bounds both
+acoustic families when $u < 0$.
+
+**Boundaries.** Two transmissive (zero-gradient) ghost cells per side
+(Toro Sec. 6.3). Two rather than one, because the flux limiter of §4 below
+reads the wave strengths at the interface one further upwind.
+
+---
+
+## 2. The problem with first order
 
 The Roe flux of [roe-solver.md](roe-solver.md) is *monotone*: it produces no
 spurious oscillations. That is its virtue and also its cost. A monotone scheme
@@ -28,7 +53,7 @@ first order where it is not.
 
 ---
 
-## 2. The flux-limited form
+## 3. The flux-limited form
 
 Write the second-order flux as the first-order (upwind) flux plus a
 correction, and multiply the correction by a limiter. Applied wave by wave to
@@ -53,13 +78,13 @@ Second — and this governs the solver's robustness — its magnitude is
 proportional to $1 - |\nu_{k}|$. As $\nu \to 0$ the correction grows until it
 exactly cancels the upwind numerical diffusion, and the scheme degenerates to
 the dissipation-free *central* scheme. **Shrinking $\Delta t$ therefore makes
-this scheme less robust, not more.** This is the opposite of the usual
-intuition and it caused a real bug during the port; see
-[porting-notes.md](porting-notes.md#6-the-cfl-ramp-that-broke-test-5).
+this scheme less robust, not more**, which is the opposite of the usual
+intuition: the advice to lower the Courant number for robustness holds for a
+first-order Godunov scheme and does not transfer here.
 
 ---
 
-## 3. The smoothness sensor
+## 4. The smoothness sensor
 
 The limiter argument $r_{k}$ measures how smooth the solution is *in wave
 family $k$*, as the ratio of the upwind wave strength to the local one
@@ -80,13 +105,12 @@ eigenvalue. Interpreting $r$:
 | large or small | a discontinuity | bounded $\phi$, so no new extremum appears |
 
 Because the correction is proportional to $\tilde{\alpha}_{k}^{\text{local}}$,
-it vanishes wherever that wave is absent, so the ratio is guarded against a
-zero denominator rather than being allowed to produce `Inf`. (The MATLAB
-original did not guard it.)
+it vanishes wherever that wave is absent, so the ratio must be guarded
+against a zero denominator rather than being allowed to produce `Inf`.
 
 ---
 
-## 4. The limiters
+## 5. The limiters
 
 A limiter is TVD if it lies inside **Sweby's region**,
 
@@ -110,7 +134,7 @@ and first-order Roe in about 12.
 
 ---
 
-## 5. What "second order" does and does not buy
+## 6. What "second order" does and does not buy
 
 A natural expectation is that the $L_1$ error should now fall as
 $\mathcal{O}(\Delta x^{2})$. It does not, and this is not a defect. The exact
@@ -131,13 +155,13 @@ with no shocks or contacts), where this scheme does deliver it.
 
 ---
 
-## 6. Stability
+## 7. Stability
 
 The scheme is stable for $C_{\text{cfl}} \le 1$. In practice:
 
 - `cfl = 0.9` — the default; recommended, and what Toro uses.
 - `cfl = 0.75` — comfortably safe.
-- Small values (`< 0.3`) — **not** safer, for the $1 - |\nu|$ reason in §2.
+- Small values (`< 0.3`) — **not** safer, for the $1 - |\nu|$ reason in §3.
   If a run is unstable, change the limiter to `minmod` or drop to first order;
   do not simply reduce the CFL number.
 

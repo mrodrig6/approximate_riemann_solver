@@ -39,7 +39,8 @@ shock at $x \approx 0.93$ appears in all four.
 
 All three runs below use the identical Roe flux. They differ only in whether
 the second-order correction of
-[tvd-extension.md](tvd-extension.md) is applied, and with which limiter.
+[finite-volume-scheme.md](finite-volume-scheme.md) is applied, and with
+which limiter.
 
 ![Effect of the flux limiter, zoomed on the contact](figures/limiter_comparison.png)
 
@@ -199,9 +200,9 @@ Lax-Friedrichs ignores the TVD correction entirely, is in
 
 ## 7. A dimensional case
 
-All the cases above are non-dimensional. `air_shock_tube` is the test from the
-original MATLAB driver `test_input2o1.m`: a Mach $\approx 1.35$ shock running
-into air at standard conditions, in SI units, output at $t = 0.3$ ms.
+All the cases above are non-dimensional. `air_shock_tube` is a Mach
+$\approx 1.35$ shock running into air at standard conditions, in SI units,
+output at $t = 0.3$ ms.
 
 ![Air shock tube in SI units](figures/air_shock_tube.png)
 
@@ -209,12 +210,11 @@ The left state was constructed as the exact post-shock state of a right-running
 shock, so the left wave is a null wave and the solution is essentially a single
 shock — captured here in one or two cells.
 
-This case is worth keeping precisely because of its units. With
-$p \approx 10^{5}$ Pa, the MATLAB original's hard-coded initial guess of
-$p = 0.5$ and its *absolute* Newton tolerance of $10^{-15}$ are both
-meaningless. The Python solver uses Toro's adaptive initial guess and a
-relative convergence criterion, so the same code runs this case and Sod's
-without any tuning — here in 3 Newton iterations.
+This case is worth keeping precisely because of its units. A fixed initial
+pressure guess, or an *absolute* Newton tolerance, would be meaningless at
+$p \approx 10^{5}$ Pa. Toro's adaptive initial guess and a relative
+convergence criterion are both scale-free, so the same code runs this case
+and Sod's without any tuning — here in 3 Newton iterations.
 
 ---
 
@@ -228,8 +228,8 @@ pytest
 
 - star-region values against Toro's Table 4.1 for all five of his test
   problems;
-- the pressure-function derivative against a finite difference (the
-  regression guard for the exponent bug in the MATLAB original);
+- the pressure-function derivative against a finite difference, which pins
+  the easily-mistaken rarefaction exponent;
 - Newton's independence from the initial guess, across 10 decades;
 - Roe's **U-property**, $\mathbf{F}_R - \mathbf{F}_L = \sum_k \tilde{\alpha}_k \tilde{\lambda}_k \tilde{\mathbf{K}}_k$, to $10^{-10}$;
 - reconstruction of the jump, $\Delta\mathbf{U} = \sum_k \tilde{\alpha}_k \tilde{\mathbf{K}}_k$;

@@ -12,33 +12,19 @@ The scheme is the conservative one-step update (Toro Sec. 6.2)
 with ``F`` supplied by :func:`riemann.fluxes.interface_fluxes`, which
 selects among the available numerical fluxes.
 
-Bugs fixed relative to the MATLAB original (``plot_roe_eue.m``)
---------------------------------------------------------------
-1. The time step used ``max |u + a|``, which is not the maximum signal speed:
-   the left-going acoustic family travels at ``u - a``, so for ``u < 0`` the
-   fastest wave is missed and the step is too large.  It now uses
-   ``max(|u| + a)`` (Toro Sec. 6.4, where ``S_max`` is so defined).
-2. The last step was not clipped to the output time, so the solution was
-   reported at some ``t > T``, up to one full step late.  ``dt`` is now
-   truncated so the final time is exactly ``T``.
-3. A note on *not* ramping the CFL number.  Toro (Sec. 6.4) suggests reducing
-   the Courant number over the first few steps of a Godunov-type run, because
-   the wave speeds present in the discontinuous initial data under-predict
-   those that appear immediately after.  That advice does **not** transfer to
-   this flux-limited scheme, and an earlier version of this port that did ramp
-   it broke Toro's Test 5.  The reason is visible in the second-order
-   correction of Toro eq. (14.49), whose magnitude is proportional to
-   ``1 - |nu_k|``: as ``nu -> 0`` the correction grows until it exactly cancels
-   the upwind numerical diffusion, and the scheme degenerates to the
-   dissipation-free central scheme.  Shrinking ``dt`` therefore makes this
-   scheme *less* robust, not more.  The step is set purely by the CFL condition
-   and by the output time.
-4. The MATLAB loop simply never updated cells 1, 2, NX-1, NX, which works only
-   as long as no wave reaches the boundary.  Proper transmissive ghost cells
-   (Toro Sec. 6.3) are now applied every step, so the solver stays valid if a
-   wave does exit the domain.
-5. There was no cap on the number of steps and no check for NaN, so a bad
-   input spun an infinite loop in silence.
+Notes on the time step
+----------------------
+The step is set purely by the CFL condition and by the output time; it is
+truncated so the run lands exactly on the requested time rather than
+overshooting it.
+
+Do **not** reduce the Courant number hoping for robustness.  Toro suggests
+that for a first-order Godunov scheme, but it does not transfer to a
+flux-limited one: the second-order correction of Toro eq. (14.49) has
+magnitude proportional to ``1 - |nu_k|``, so as ``nu -> 0`` it grows until it
+exactly cancels the upwind numerical diffusion and the scheme degenerates to
+the dissipation-free central scheme.  A smaller step therefore makes this
+scheme *less* robust.  If a run is unstable, change the limiter or the flux.
 """
 
 from __future__ import annotations
@@ -48,7 +34,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ._jit import njit
-from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
+from .fluxes import interface_fluxes
+from .fluxes.registry import FLUX_NAMES, flux_code
 from .limiters import LIMITER_NAMES, limiter_code
 from .thermo import (
     conservative_to_primitive,
@@ -84,8 +71,8 @@ def _apply_transmissive_bc(u_all, n_ghost):
 def _max_signal_speed(u_all, gamma, n_ghost):
     """``S_max = max_i (|u_i| + a_i)`` over the interior cells (Toro Sec. 6.4).
 
-    Using ``|u| + a`` rather than the MATLAB's ``|u + a|`` is what makes this
-    an upper bound on *both* acoustic families, ``u - a`` and ``u + a``.
+    Note ``|u| + a``, not ``|u + a|``: only the former bounds *both* acoustic
+    families, ``u - a`` and ``u + a``, when ``u < 0``.
     """
     n_cells = u_all.shape[0]
     s_max = 0.0
@@ -272,8 +259,7 @@ def solve_roe(
         choice; ``"roe"`` is the default for backwards compatibility.
     limiter : str or int
         Flux limiter: ``"superbee"``, ``"minmod"``, ``"vanleer"``,
-        ``"vanalbada"`` or ``"none"``.  Integers 0/1 map to superbee/minmod to
-        match the MATLAB ``flim`` flag.
+        ``"vanalbada"`` or ``"none"``.
     second_order : bool
         Include the flux-limited second-order correction.  Setting this
         ``False`` gives the plain first-order Roe scheme, which is useful for

@@ -1,9 +1,8 @@
 """Exact Riemann solver for the 1-D Euler equations with an ideal gas.
 
-This is a port of ``src/exact_solver/*.m`` with the algorithm tightened up to
-follow Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*
-(3rd ed.), Chapter 4 ("The Riemann Problem for the Euler Equations") and the
-initial-guess recipe of Chapter 9, Sec. 9.5.
+The algorithm follows Toro, *Riemann Solvers and Numerical Methods for Fluid
+Dynamics* (3rd ed.), Chapter 4 ("The Riemann Problem for the Euler
+Equations"), with the initial-guess recipe of Chapter 9, Sec. 9.5.
 
 Structure of the solution
 -------------------------
@@ -22,27 +21,6 @@ pinned down by the single scalar ``p_star`` solving Toro eq. (4.5):
 ``f`` is monotone increasing and concave in ``p``, so Newton-Raphson converges
 from any positive starting point; a good starting point (``initial_pressure_guess``
 below) just makes it converge in 3-5 iterations instead of 20.
-
-Bugs fixed relative to the MATLAB original
-------------------------------------------
-1. ``fp_ps.m`` used the exponent ``-(gamma-1)/(2*gamma)`` in the rarefaction
-   branch of the derivative.  The correct exponent (Toro eq. 4.37) is
-   ``-(gamma+1)/(2*gamma)``.  The wrong derivative still converged for Sod's
-   problem, but only linearly and from a lucky guess.
-2. ``root_find.m`` had no iteration cap, no positivity guard on the Newton
-   update, and terminated on ``|f(p_new) - f(p_old)|`` -- an absolute residual
-   difference that is meaningless once the pressures are dimensional (the
-   ``test_input2o1`` case runs at p ~ 1e5 Pa, where a tolerance of 1e-15 can
-   never be met).  It now uses Toro's relative pressure change criterion
-   (eq. 4.* / "CHA" in his Fortran), a cap, and a positivity clamp.
-3. The hard-coded initial guess ``p = 0.5`` is replaced by the adaptive
-   PVRS / two-rarefaction / two-shock guess of Toro Sec. 9.5.
-4. ``plot_rp.m`` sampled the left and right halves of the fan in two separate
-   ``if`` blocks whose strict inequalities left the points exactly on a wave
-   (e.g. ``x == u_star * t``) set to zero.  The sampler here partitions the
-   whole ``x/t`` axis with no gaps.
-5. A vacuum check (Toro eq. 4.40) now raises instead of silently producing
-   NaNs from a negative pressure.
 """
 
 from __future__ import annotations
@@ -95,8 +73,10 @@ def _f_single(p, rho_k, p_k, a_k, gamma):
 def _fprime_single(p, rho_k, p_k, a_k, gamma):
     """Derivative ``df_K/dp`` (Toro eqs. 4.37, differentiating 4.6-4.7).
 
-    Note the rarefaction exponent ``-(gamma + 1) / (2 * gamma)``: this is where
-    the MATLAB original had ``-(gamma - 1) / (2 * gamma)``.
+    Note the rarefaction exponent: ``-(gamma + 1) / (2 * gamma)``, not
+    ``-(gamma - 1) / (2 * gamma)``.  Getting it wrong costs Newton its
+    quadratic convergence without preventing it from finding the root, so the
+    derivative is checked against a finite difference in the test suite.
     """
     if p > p_k:  # shock
         a_big = 2.0 / ((gamma + 1.0) * rho_k)
@@ -155,9 +135,8 @@ def initial_pressure_guess(gamma, w_l, w_r):
     * **Two-shock** (Toro eq. 9.42) when PVRS overshoots ``max(p_L, p_R)``.
 
     Each is cheap and each is asymptotically exact in its own regime, so the
-    resulting guess is uniformly good -- unlike the hard-coded ``0.5`` of the
-    MATLAB driver, which is nowhere near the answer for a dimensional problem
-    at ~1e5 Pa.
+    resulting guess is uniformly good across regimes, including dimensional
+    problems at ~1e5 Pa where a fixed guess would be nowhere near the root.
     """
     rho_l, u_l, p_l = w_l[0], w_l[1], w_l[2]
     rho_r, u_r, p_r = w_r[0], w_r[1], w_r[2]
@@ -473,8 +452,7 @@ def solve_exact(
     n : int
         Number of sample points (cell centres).
     x_diaphragm : float
-        Position of the initial discontinuity.  This is the ``dloc`` shift of
-        the MATLAB driver, made explicit.
+        Position of the initial discontinuity.
     tol, p_guess
         Passed to :func:`solve_star_pressure`.
 

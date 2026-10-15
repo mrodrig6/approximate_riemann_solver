@@ -2,9 +2,7 @@
 
 Runs one of the built-in test problems (or a custom left/right state) with both
 the exact and the Roe solver, prints a short error report and optionally writes
-a comparison figure.  This is the direct replacement for the MATLAB ``main.m``
-and ``test_input2o1.m`` driver scripts, with their hard-coded parameters turned
-into flags.
+a comparison figure.
 """
 
 from __future__ import annotations
@@ -169,9 +167,9 @@ def main(argv=None):
     except FloatingPointError as exc:
         # A documented breakdown of the method (see `roe_note`) should report
         # itself clearly rather than looking like a crash in the port.
-        # A documented breakdown of the method should report itself clearly
-        # rather than looking like a bug.  The problem's own note is printed
-        # here, where it is always relevant, rather than before every run.
+        # A documented breakdown of the method should report itself clearly.
+        # The problem's own note is printed here, where it is always relevant,
+        # rather than ahead of every run.
         print(f"\nnumerical run FAILED:\n{exc}", file=sys.stderr)
         if problem.flux_note:
             print(f"\nnote on this problem:\n{problem.flux_note}", file=sys.stderr)

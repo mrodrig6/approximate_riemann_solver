@@ -13,8 +13,7 @@ closed by the ideal-gas caloric equation of state (Toro eq. 3.9)
     E = rho*e + 0.5*rho*u^2,     e = p / ((gamma - 1) * rho).
 
 Throughout the code ``W = [rho, u, p]`` denotes the *primitive* state vector
-and ``U = [rho, rho*u, E]`` the *conservative* one, matching the MATLAB code
-this package was ported from.
+and ``U = [rho, rho*u, E]`` the *conservative* one.
 """
 
 from __future__ import annotations

@@ -1,45 +1,51 @@
 """Exact and approximate Riemann solvers for the 1-D Euler equations.
 
-A Python port of the MATLAB code of the Rodriguez Flow Research group at Brown
-University, accelerated with Numba.  The package provides
+The package provides
 
-* :func:`riemann.exact.solve_exact` -- the exact Riemann solver (Newton
-  iteration for the star pressure plus self-similar sampling of the wave fan);
-* :func:`riemann.solver.solve_roe` -- the finite-volume solver, with a choice
-  of numerical flux (Roe with a Harten-Hyman entropy fix, HLL, HLLC, Rusanov,
-  Lax-Friedrichs or AUSM+-up) and a second-order TVD flux-limiter extension;
-* :mod:`riemann.fluxes` -- the flux functions themselves;
-* :mod:`riemann.problems` -- Toro's standard test problems;
+* :func:`riemann.exact.solve_exact` -- the exact Riemann solver: Newton
+  iteration for the star-region pressure, then self-similar sampling of the
+  wave fan;
+* :func:`riemann.solver.solve_roe` -- an explicit finite-volume solver with a
+  choice of numerical flux and an optional second-order TVD extension;
+* :mod:`riemann.fluxes` -- the flux functions: Roe, HLL, HLLC, AUSM+-up,
+  Rusanov and Lax-Friedrichs;
+* :mod:`riemann.limiters` -- superbee, minmod, van Leer, van Albada;
+* :mod:`riemann.problems` -- standard test problems;
 * :mod:`riemann.plotting` -- four-panel comparison figures.
 
-The formulation, the equation numbers and the test cases all follow Toro,
-*Riemann Solvers and Numerical Methods for Fluid Dynamics*, 3rd ed.,
-Springer 2009.  See ``docs/`` for the full write-up.
+Formulation, notation and equation numbers follow Toro, *Riemann Solvers and
+Numerical Methods for Fluid Dynamics*, 3rd ed., Springer 2009.  See ``docs/``
+for the full write-up.
 
 Quick start
 -----------
->>> from riemann import solve_exact, solve_roe, get_problem
+>>> from riemann import get_problem, solve_exact, solve_roe
 >>> prob = get_problem("sod")
 >>> exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end)
->>> roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
->>> hllc = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, flux="hllc")
 >>> round(exact.p_star, 5)
 0.30313
+>>> roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
+>>> hllc = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, flux="hllc")
 """
 
 from __future__ import annotations
 
 from ._jit import HAVE_NUMBA, numba_version
 from .exact import ExactSolution, sample_exact, solve_exact, solve_star_pressure
+from .fluxes import (
+    FLUXES,
+    ROBUST_FLUXES,
+    flux_code,
+    interface_fluxes,
+    roe_average,
+)
 from .limiters import LIMITERS, limiter_phi
 from .plotting import plot_comparison, save_figure
 from .problems import PROBLEMS, RiemannProblem, get_problem, list_problems
-from .fluxes import FLUXES, flux_code, interface_fluxes, roe_fluxes
-from .roe import roe_average
 from .solver import RoeSolution, solve_roe
 from .thermo import conservative_to_primitive, primitive_to_conservative
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "ExactSolution",
@@ -47,6 +53,7 @@ __all__ = [
     "HAVE_NUMBA",
     "LIMITERS",
     "PROBLEMS",
+    "ROBUST_FLUXES",
     "RiemannProblem",
     "RoeSolution",
     "__version__",
@@ -60,7 +67,6 @@ __all__ = [
     "plot_comparison",
     "primitive_to_conservative",
     "roe_average",
-    "roe_fluxes",
     "sample_exact",
     "save_figure",
     "solve_exact",

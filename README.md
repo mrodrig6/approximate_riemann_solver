@@ -125,10 +125,10 @@ python -m riemann air_shock_tube --dimensional --plot air.png
 Three worked examples, each runnable directly:
 
 ```bash
-python examples/sod_shock_tube.py          # the basics (replaces main.m)
+python examples/sod_shock_tube.py          # the basics
 python examples/compare_fluxes.py          # all six fluxes side by side
 python examples/compare_limiters.py        # first vs second order, four limiters
-python examples/dimensional_shock_tube.py  # SI units (replaces test_input2o1.m)
+python examples/dimensional_shock_tube.py  # SI units
 ```
 
 And two utility scripts:
@@ -148,11 +148,10 @@ in **[`docs/`](docs/index.md)**:
 | Page | Covers |
 | --- | --- |
 | [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{*}) = 0$, sampling, vacuum |
-| [Roe's approximate Riemann solver](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
-| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: HLL, HLLC, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
-| [Second-order accuracy and TVD flux limiters](docs/tvd-extension.md) | Toro Ch. 13–14: Godunov's theorem, flux limiting, Sweby's region |
+| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: Roe, HLLC, HLL, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
+| [Roe's solver in detail](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
+| [The finite-volume scheme](docs/finite-volume-scheme.md) | Toro Ch. 6, 13–14: conservative update, CFL, boundaries, flux limiting, Sweby's region |
 | [Validation and results](docs/validation.md) | All figures and the numbers behind them |
-| [Porting notes: MATLAB to Python](docs/porting-notes.md) | File mapping and every bug fixed in the port |
 
 ---
 
@@ -166,7 +165,7 @@ in **[`docs/`](docs/index.md)**:
 | `toro4` | right half of the blast — two colliding strong shocks | Toro Test 4 |
 | `toro5` | slowly-moving contact, stresses contact resolution | Toro Test 5 |
 | `sonic_rarefaction` | transonic fan — exercises the entropy fix | this repository |
-| `air_shock_tube` | Mach ≈ 1.35 shock in air, SI units | `test_input2o1.m` |
+| `air_shock_tube` | Mach ≈ 1.35 shock in air, SI units | dimensional case |
 
 `toro2` is included *because* it fails. Roe's linearisation does not preserve
 positivity of internal energy, so a near-vacuum star region drives the
@@ -249,38 +248,40 @@ paid once per machine rather than once per process.
 ## Repository layout
 
 ```
-riemann/              the Python package
+riemann/
   thermo.py             equation of state, variable conversions, Euler flux
   exact.py              exact Riemann solver
-  roe.py                Roe average, eigenstructure, Roe flux, entropy fix
-  fluxes.py             HLL, HLLC, AUSM+-up, Rusanov, Lax-Friedrichs; TVD term
+  fluxes/
+    roe.py                Roe average, eigenstructure, Roe flux, entropy fix
+    hll.py                Einfeldt wave speeds, HLL, HLLC
+    ausm.py               split polynomials, AUSM+-up
+    central.py            Rusanov, Lax-Friedrichs
+    interface.py          flux dispatch and the second-order TVD term
+    registry.py           flux names and codes
   limiters.py           superbee, minmod, van Leer, van Albada
   solver.py             finite-volume driver, CFL, boundary conditions
-  problems.py           Toro's test problems
+  problems.py           test problems
   plotting.py           four-panel comparison figures
   cli.py                python -m riemann
   _jit.py               optional-Numba shim
-docs/                 formulation, validation, porting notes, figures
+docs/                 formulation, flux functions, validation, figures
 examples/             four runnable examples
 scripts/              figure generation and benchmarking
-tests/                142 pytest tests
-matlab_legacy/        the original MATLAB implementation, archived
+tests/                142 pytest tests, mirroring the package layout
+matlab_legacy/        archived MATLAB implementation
 ```
 
 ---
 
 ## Roadmap
 
-- **SLAU** (Shima & Kitamura 2011). Left out: its functions `g` and `chi`
-  could not be verified from this environment, and EMS does not implement it.
-  `riemann/fluxes.py` is arranged so it slots in beside AUSM+-up. See
-  [the write-up](docs/flux-functions.md#what-is-still-not-implemented-slau).
+- **SLAU** (Shima & Kitamura 2011); `riemann/fluxes/` is arranged so it slots
+  in as another module beside `ausm.py`.
 - MUSCL-Hancock reconstruction (Toro Ch. 14) as an alternative route to second
   order.
 - Extension to two dimensions by dimensional splitting (Toro Ch. 16).
 - Stiffened-gas and Mie–Grüneisen equations of state.
 
-Done: HLL, HLLE, HLLC, AUSM+-up, Rusanov and Lax–Friedrichs.
 
 ---
 

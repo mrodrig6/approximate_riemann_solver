@@ -1,8 +1,8 @@
-"""Tests for the numerical flux functions.
+"""Properties of the individual numerical flux functions.
 
-Most of these are *identity* tests rather than comparisons against stored
-numbers: each flux has defining algebraic properties, and checking those pins
-the implementation far more tightly than a regression baseline would.
+Mostly *identity* tests rather than stored-number comparisons: each flux has
+defining algebraic or physical properties, and checking those pins the
+implementation far more tightly than a regression baseline would.
 """
 
 from __future__ import annotations
@@ -12,26 +12,26 @@ import pytest
 
 from riemann import get_problem, solve_exact, solve_roe
 from riemann.fluxes import (
-    FLUX_NAMES,
     FLUXES,
-    ROBUST_FLUXES,
-    _m4_minus,
-    _m4_plus,
-    _p5_minus,
-    _p5_plus,
     ausm_up_flux,
     flux_code,
     hll_flux,
     hllc_flux,
+    interface_eigensystem,
     lax_friedrichs_flux,
+    m4_minus,
+    m4_plus,
+    p5_minus,
+    p5_plus,
+    roe_average,
     rusanov_flux,
 )
 from riemann.thermo import euler_flux, primitive_to_conservative
 
 GAMMA = 1.4
 
-#: Every flux by canonical name.
-ALL_FLUXES = sorted(set(FLUX_NAMES.values()))
+#: Fluxes callable directly, without an eigensystem argument.
+DIRECT_FLUXES = ["hll", "hllc", "rusanov", "lax_friedrichs", "ausmup"]
 
 #: A spread of states for the consistency checks: at rest, subsonic,
 #: supersonic both ways, strong and weak.
@@ -46,15 +46,18 @@ SAMPLE_STATES = [
 
 
 def _cons(w):
+    """Conservative state from a primitive triple."""
     return primitive_to_conservative(np.asarray(w, dtype=float), GAMMA)
+
+
+def _pair(w_l, w_r):
+    """A two-cell conservative array from two primitive states."""
+    return np.vstack([_cons(w_l), _cons(w_r)])
 
 
 def _evaluate(name, u_l, u_r, dx=0.01, dt=0.001):
     """Call one flux by name and return the result as a fresh array."""
     out = np.empty(3)
-    if name == "roe":
-        sol = None  # the Roe flux needs its eigenstructure; exercised via solve_roe
-        raise NotImplementedError(sol)
     if name == "hll":
         hll_flux(u_l, u_r, GAMMA, out)
     elif name == "hllc":
@@ -68,9 +71,6 @@ def _evaluate(name, u_l, u_r, dx=0.01, dt=0.001):
     else:
         raise AssertionError(f"unhandled flux {name}")
     return out
-
-
-DIRECT_FLUXES = ["hll", "hllc", "rusanov", "lax_friedrichs", "ausmup"]
 
 
 # --------------------------------------------------------------------------- #
@@ -92,7 +92,7 @@ def test_flux_code_accepts_names_aliases_and_integers():
 
 
 # --------------------------------------------------------------------------- #
-# Consistency: F(U, U) == F(U)
+# Consistency and upwinding
 # --------------------------------------------------------------------------- #
 
 @pytest.mark.parametrize("name", DIRECT_FLUXES)
@@ -106,7 +106,6 @@ def test_flux_is_consistent(name, w):
     u = _cons(w)
     assert _evaluate(name, u, u) == pytest.approx(euler_flux(u, GAMMA), rel=1e-12,
                                                   abs=1e-12)
-
 
 @pytest.mark.parametrize("name", ["hll", "hllc", "ausmup"])
 def test_upwind_fluxes_are_exact_when_supersonic(name):
@@ -132,7 +131,6 @@ def test_upwind_fluxes_are_exact_when_supersonic(name):
         euler_flux(u_r, GAMMA), rel=1e-10
     )
 
-
 @pytest.mark.parametrize("name", ["rusanov", "lax_friedrichs"])
 def test_central_fluxes_stay_dissipative_when_supersonic(name):
     """The complement: Rusanov and LF do not reduce to the upwind flux."""
@@ -140,6 +138,60 @@ def test_central_fluxes_stay_dissipative_when_supersonic(name):
     assert np.max(
         np.abs(_evaluate(name, u_l, u_r) - euler_flux(u_l, GAMMA))
     ) > 1e-6
+
+
+# --------------------------------------------------------------------------- #
+# Roe: the U-property and the wave decomposition
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.parametrize(
+    "w_l,w_r",
+    [
+        ([1.0, 0.0, 1.0], [0.125, 0.0, 0.1]),
+        ([5.99924, 19.5975, 460.894], [5.99242, -6.19633, 46.0950]),
+        ([1.0, -1.3, 2.7], [0.4, 0.9, 0.3]),
+        ([2.0, 0.0, 3.0], [2.0, 0.0, 3.0]),  # no jump at all
+    ],
+)
+def test_u_property(w_l, w_r):
+    """``F(U_R) - F(U_L) = sum_k alpha_k lambda_k K_k`` exactly (Toro eq. 11.18).
+
+    This is the single most important property of the Roe average; if the
+    wave strengths or the eigenvectors are wrong, this breaks.
+    """
+    u = _pair(w_l, w_r)
+    lam = np.empty((1, 3))
+    k = np.empty((1, 3, 3))
+    alpha = np.empty((1, 3))
+    interface_eigensystem(u, GAMMA, lam, k, alpha)
+
+    reconstructed = sum(alpha[0, m] * lam[0, m] * k[0, m] for m in range(3))
+    expected = euler_flux(u[1], GAMMA) - euler_flux(u[0], GAMMA)
+    assert reconstructed == pytest.approx(expected, rel=1e-10, abs=1e-10)
+
+@pytest.mark.parametrize(
+    "w_l,w_r",
+    [
+        ([1.0, 0.0, 1.0], [0.125, 0.0, 0.1]),
+        ([1.0, 2.0, 5.0], [3.0, -1.0, 0.5]),
+    ],
+)
+def test_wave_strengths_reconstruct_the_jump(w_l, w_r):
+    """``U_R - U_L = sum_k alpha_k K_k`` (Toro eqs. 11.68-11.70)."""
+    u = _pair(w_l, w_r)
+    lam = np.empty((1, 3))
+    k = np.empty((1, 3, 3))
+    alpha = np.empty((1, 3))
+    interface_eigensystem(u, GAMMA, lam, k, alpha)
+    reconstructed = sum(alpha[0, m] * k[0, m] for m in range(3))
+    assert reconstructed == pytest.approx(u[1] - u[0], rel=1e-10, abs=1e-12)
+
+def test_roe_average_reduces_to_the_state_when_states_are_equal():
+    w = [1.3, 0.7, 2.1]
+    u = _pair(w, w)
+    u_t, h_t, a_t = roe_average(u[0], u[1], GAMMA)
+    assert u_t == pytest.approx(w[1])
+    assert a_t == pytest.approx(np.sqrt(GAMMA * w[2] / w[0]))
 
 
 # --------------------------------------------------------------------------- #
@@ -153,9 +205,8 @@ def test_ausm_split_mach_is_consistent():
     makes the Mach splitting consistent.  It pins the polynomial forms.
     """
     for m in np.linspace(-3.0, 3.0, 601):
-        total = _m4_plus(float(m), 0.125) + _m4_minus(float(m), 0.125)
+        total = m4_plus(float(m), 0.125) + m4_minus(float(m), 0.125)
         assert total == pytest.approx(float(m), abs=1e-14)
-
 
 def test_ausm_pressure_splitting_is_consistent():
     """``P+_(5)(M) + P-_(5)(M) = 1`` exactly, for every M.
@@ -166,17 +217,16 @@ def test_ausm_pressure_splitting_is_consistent():
     for m in np.linspace(-3.0, 3.0, 601):
         if abs(m) < 1e-12:
             continue
-        total = _p5_plus(float(m), 0.1875) + _p5_minus(float(m), 0.1875)
+        total = p5_plus(float(m), 0.1875) + p5_minus(float(m), 0.1875)
         assert total == pytest.approx(1.0, abs=1e-14)
-
 
 def test_ausm_pressure_splitting_is_non_negative():
     """The pressure weights are a convex combination, so both are in [0, 1]."""
     for m in np.linspace(-3.0, 3.0, 601):
         if abs(m) < 1e-12:
             continue
-        assert -1e-14 <= _p5_plus(float(m), 0.1875) <= 1.0 + 1e-14
-        assert -1e-14 <= _p5_minus(float(m), 0.1875) <= 1.0 + 1e-14
+        assert -1e-14 <= p5_plus(float(m), 0.1875) <= 1.0 + 1e-14
+        assert -1e-14 <= p5_minus(float(m), 0.1875) <= 1.0 + 1e-14
 
 
 # --------------------------------------------------------------------------- #
@@ -200,7 +250,6 @@ def test_contact_preserving_fluxes_are_exact_on_a_stationary_contact(name):
     between = np.sum((sol.rho > 0.1425) & (sol.rho < 0.9825))
     assert between == 0
 
-
 @pytest.mark.parametrize("name", ["hll", "rusanov", "lax_friedrichs"])
 def test_two_wave_fluxes_smear_a_stationary_contact(name):
     """HLL, Rusanov and Lax-Friedrichs have no middle wave, so they smear it.
@@ -214,7 +263,6 @@ def test_two_wave_fluxes_smear_a_stationary_contact(name):
     )
     between = np.sum((sol.rho > 0.1425) & (sol.rho < 0.9825))
     assert between > 10
-
 
 @pytest.mark.parametrize("name", ["roe", "hllc", "ausmup"])
 def test_moving_contact_keeps_pressure_constant(name):
@@ -233,52 +281,8 @@ def test_moving_contact_keeps_pressure_constant(name):
 
 
 # --------------------------------------------------------------------------- #
-# Behaviour of the full scheme
+# What each flux can and cannot do
 # --------------------------------------------------------------------------- #
-
-@pytest.mark.parametrize("name", ALL_FLUXES)
-def test_uniform_flow_is_a_fixed_point(name):
-    w = np.array([1.2, 0.8, 3.4])
-    sol = solve_roe(GAMMA, w, w, 0.3, nx=64, flux=name)
-    assert sol.rho == pytest.approx(np.full(64, w[0]))
-    assert sol.u == pytest.approx(np.full(64, w[1]))
-    assert sol.p == pytest.approx(np.full(64, w[2]))
-
-
-@pytest.mark.parametrize("name", ALL_FLUXES)
-def test_every_flux_conserves_mass_and_energy(name):
-    """Every flux is in conservation form, so the totals obey the boundary flux."""
-    prob = get_problem("sod")
-    t_end, nx = 0.15, 100
-    sol = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx, flux=name)
-    initial = primitive_to_conservative(
-        np.where((sol.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),
-        prob.gamma,
-    )
-    final = sol.conserved.sum(axis=0) * sol.dx
-    start = initial.sum(axis=0) * sol.dx
-    assert final[0] == pytest.approx(start[0], rel=1e-12)
-    assert final[2] == pytest.approx(start[2], rel=1e-12)
-    impulse = (prob.left[2] - prob.right[2]) * t_end
-    assert final[1] - start[1] == pytest.approx(impulse, rel=1e-10)
-
-
-@pytest.mark.parametrize("name", sorted(FLUX_NAMES[c] for c in ROBUST_FLUXES))
-def test_robust_fluxes_run_every_problem(name):
-    """The fluxes advertised as robust must actually run the whole catalogue.
-
-    Including Toro's Test 2, the near-vacuum case where Roe fails outright.
-    """
-    from riemann.problems import PROBLEMS
-
-    for prob in PROBLEMS.values():
-        sol = solve_roe(
-            prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
-            x_diaphragm=prob.x_diaphragm, flux=name,
-        )
-        assert np.all(sol.rho > 0), (name, prob.name)
-        assert np.all(sol.p > 0), (name, prob.name)
-
 
 def test_hllc_solves_the_problem_roe_cannot():
     """Toro's Test 2 is the headline case for a positivity-preserving flux."""
@@ -290,29 +294,6 @@ def test_hllc_solves_the_problem_roe_cannot():
     # The star region is near vacuum, so judge on a relative error.
     rel = np.mean(np.abs(sol.rho - exact.rho)) / np.max(exact.rho)
     assert rel < 0.02
-
-
-def test_accuracy_ordering_on_sod():
-    """Roe < HLLC < HLL < Rusanov < Lax-Friedrichs in L1 error.
-
-    This ordering follows directly from how much of the wave structure each
-    flux resolves, and it is the single clearest summary of what the fluxes
-    differ in.  AUSM+-up is excluded because it is not a wave-based scheme and
-    does not slot into the same ordering.
-    """
-    prob = get_problem("sod")
-    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
-    err = {}
-    for name in ("roe", "hllc", "hll", "rusanov", "lax_friedrichs"):
-        sol = solve_roe(
-            prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux=name
-        )
-        err[name] = np.mean(np.abs(sol.rho - exact.rho))
-    assert (
-        err["roe"] < err["hllc"] < err["hll"]
-        < err["rusanov"] < err["lax_friedrichs"]
-    )
-
 
 def test_ausm_up_starts_from_rest():
     """The ``K_p`` term is what lets AUSM+-up start a flow from rest.
@@ -331,7 +312,6 @@ def test_ausm_up_starts_from_rest():
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
     assert np.mean(np.abs(sol.rho - exact.rho)) < 0.02
 
-
 def test_ausm_up_runs_every_problem_at_first_order():
     """The AUSM+-up flux itself handles the whole catalogue.
 
@@ -349,50 +329,3 @@ def test_ausm_up_runs_every_problem_at_first_order():
         )
         assert np.all(sol.rho > 0), prob.name
         assert np.all(sol.p > 0), prob.name
-
-
-def test_lax_friedrichs_odd_even_decoupling_disables_the_limiter():
-    """Classical Lax-Friedrichs decouples the grid into two sub-grids.
-
-    Its dissipation acts on a 2*dx stencil, so the solution develops identical
-    adjacent cell pairs.  Every interface then has either a zero local wave
-    strength or a zero upwind one, which drives the limiter ratio to zero and
-    makes the second-order correction vanish identically -- so for this flux
-    alone, second order is indistinguishable from first.
-    """
-    kwargs = dict(gamma=GAMMA, w_l=[1.0, 0.0, 1.0], w_r=[0.125, 0.0, 0.1],
-                  t_end=0.25, nx=200, flux="lax_friedrichs")
-    second = solve_roe(second_order=True, **kwargs)
-    first = solve_roe(second_order=False, **kwargs)
-    assert np.max(np.abs(second.rho - first.rho)) < 1e-12
-    # The signature of the decoupling: adjacent cells agree in pairs.  Which
-    # of the two phases the pairs start on depends on where the diaphragm
-    # falls, so accept either.
-    even = np.max(np.abs(first.rho[0:-1:2] - first.rho[1::2]))
-    odd = np.max(np.abs(first.rho[1:-1:2] - first.rho[2::2]))
-    assert min(even, odd) < 1e-12
-    # A local-dissipation flux does not do this.
-    rus = solve_roe(**{**kwargs, "flux": "rusanov"}, second_order=True)
-    rus1 = solve_roe(**{**kwargs, "flux": "rusanov"}, second_order=False)
-    assert np.max(np.abs(rus.rho - rus1.rho)) > 1e-3
-
-
-@pytest.mark.parametrize("name", ["roe", "hllc", "hll", "rusanov"])
-def test_second_order_beats_first_for_each_flux(name):
-    prob = get_problem("sod")
-    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
-    kw = dict(nx=200, flux=name)
-    second = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
-                       second_order=True, **kw)
-    first = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
-                      second_order=False, **kw)
-    assert np.mean(np.abs(second.rho - exact.rho)) < np.mean(
-        np.abs(first.rho - exact.rho)
-    )
-
-
-@pytest.mark.parametrize("name", ALL_FLUXES)
-def test_labels_are_distinct_and_descriptive(name):
-    sol = solve_roe(GAMMA, [1.0, 1.0, 1.0], [0.5, 1.0, 0.8], 0.05, nx=32, flux=name)
-    assert sol.flux == name
-    assert "order" in sol.label

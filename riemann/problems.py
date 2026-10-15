@@ -25,11 +25,10 @@ Test  Wave pattern                      What it stresses
 rarefaction fan straddles ``x = x_diaphragm``, which is exactly the transonic
 situation where an unfixed Roe solver produces an entropy-violating glitch.
 
-``air_shock_tube`` is the dimensional case from the original ``test_input2o1.m``
-driver: SI units, a right-moving Mach ~1.35 shock in air at standard
-conditions.  Keeping it in the suite is what justified replacing the
-hard-coded ``p_guess = 0.5`` and the absolute Newton tolerance, neither of
-which is meaningful when ``p ~ 1e5``.
+``air_shock_tube`` is a dimensional case: SI units, a right-moving Mach ~1.35
+shock in air at standard conditions.  It is the one problem here whose
+pressures are ~1e5 rather than ~1, so it exercises the scale invariance of
+the exact solver's initial guess and convergence criterion.
 """
 
 from __future__ import annotations
@@ -191,7 +190,7 @@ PROBLEMS = {
             w_r=(1.204, 0.0, 101325.0),
             gamma=1.4,
             t_end=3.0e-4,
-            reference="original MATLAB driver test_input2o1.m",
+            reference="dimensional shock tube in air at standard conditions",
         ),
     ]
 }

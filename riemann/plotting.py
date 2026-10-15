@@ -1,10 +1,8 @@
 r"""Figure generation for the Riemann solvers.
 
-Replaces the plotting that was embedded in ``plot_rp.m`` and
-``plot_roe_eue.m``.  Separating the plotting from the solvers is the main
-structural change of the port: the MATLAB functions computed *and* drew, so
-there was no way to get the numbers without a figure, and no way to overlay a
-third curve without editing the solver.
+The solvers return plain data objects and this module draws them, so a run
+can be made without producing a figure and any number of runs can be overlaid
+without touching solver code.
 
 A note on LaTeX
 ---------------
