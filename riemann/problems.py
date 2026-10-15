@@ -1,0 +1,209 @@
+"""Catalogue of standard Riemann-problem test cases.
+
+The first five are Toro's test problems from *Riemann Solvers and Numerical
+Methods for Fluid Dynamics* (3rd ed.), Sec. 4.3.3 and Table 4.1 / Sec. 6.4.
+They are the de facto acceptance suite for a 1-D Euler code because between
+them they exercise every wave pattern and every failure mode:
+
+===== ================================= ==========================================
+Test  Wave pattern                      What it stresses
+===== ================================= ==========================================
+1     rarefaction / contact / shock     Sod's problem: the basic sanity check.
+2     rarefaction / contact / rarefact. The "123" problem; a near-vacuum star
+                                        region, so positivity and the Newton
+                                        initial guess.
+3     rarefaction / contact / shock     Left half of the Woodward-Colella blast;
+                                        a very strong (1e5) pressure ratio.
+4     shock / contact / shock           Right half of the blast: two strong
+                                        shocks colliding.
+5     rarefaction / contact / shock     A slowly-moving contact -- the classic
+                                        demonstration that Roe smears contacts
+                                        and that a compressive limiter helps.
+===== ================================= ==========================================
+
+``sonic_rarefaction`` is added for the entropy fix: it is set up so the left
+rarefaction fan straddles ``x = x_diaphragm``, which is exactly the transonic
+situation where an unfixed Roe solver produces an entropy-violating glitch.
+
+``air_shock_tube`` is the dimensional case from the original ``test_input2o1.m``
+driver: SI units, a right-moving Mach ~1.35 shock in air at standard
+conditions.  Keeping it in the suite is what justified replacing the
+hard-coded ``p_guess = 0.5`` and the absolute Newton tolerance, neither of
+which is meaningful when ``p ~ 1e5``.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+
+__all__ = ["RiemannProblem", "PROBLEMS", "get_problem", "list_problems"]
+
+
+@dataclass(frozen=True)
+class RiemannProblem:
+    """A complete, self-contained Riemann-problem specification.
+
+    Attributes
+    ----------
+    name : str
+        Short key used by the CLI and the figure scripts.
+    description : str
+        One-line human-readable summary.
+    w_l, w_r : tuple[float, float, float]
+        Left and right primitive states ``(rho, u, p)``.
+    gamma : float
+        Ratio of specific heats.
+    t_end : float
+        Conventional output time for this test.
+    x_left, x_right, x_diaphragm : float
+        Domain and the initial discontinuity position.
+    reference : str
+        Where the case comes from, so a reader can look it up in Toro.
+    roe_note : str
+        Non-empty if the Roe scheme is *expected* to struggle (or fail) on this
+        case.  Used by the CLI and the test suite so that a known, documented
+        limitation of the method is not mistaken for a broken port.
+    """
+
+    name: str
+    description: str
+    w_l: tuple
+    w_r: tuple
+    gamma: float
+    t_end: float
+    x_left: float = 0.0
+    x_right: float = 1.0
+    x_diaphragm: float = 0.5
+    reference: str = ""
+    roe_note: str = ""
+
+    @property
+    def left(self):
+        """Left primitive state as a float array ``[rho, u, p]``."""
+        return np.array(self.w_l, dtype=float)
+
+    @property
+    def right(self):
+        """Right primitive state as a float array ``[rho, u, p]``."""
+        return np.array(self.w_r, dtype=float)
+
+    def kwargs(self):
+        """The geometry/physics keywords shared by the exact and Roe solvers."""
+        return dict(
+            gamma=self.gamma,
+            w_l=self.left,
+            w_r=self.right,
+            t_end=self.t_end,
+            x_left=self.x_left,
+            x_right=self.x_right,
+            x_diaphragm=self.x_diaphragm,
+        )
+
+
+#: All built-in test problems, keyed by name.
+PROBLEMS = {
+    p.name: p
+    for p in [
+        RiemannProblem(
+            name="sod",
+            description="Sod's problem: left rarefaction, contact, right shock",
+            w_l=(1.0, 0.0, 1.0),
+            w_r=(0.125, 0.0, 0.1),
+            gamma=1.4,
+            t_end=0.25,
+            reference="Toro Test 1, Sec. 4.3.3 / Table 4.1",
+        ),
+        RiemannProblem(
+            name="toro2",
+            description="123 problem: two strong rarefactions, near-vacuum star state",
+            w_l=(1.0, -2.0, 0.4),
+            w_r=(1.0, 2.0, 0.4),
+            gamma=1.4,
+            t_end=0.15,
+            reference="Toro Test 2, Sec. 4.3.3",
+            roe_note=(
+                "Roe's scheme FAILS on this problem, at first and second order "
+                "alike: the star region is so close to vacuum that the "
+                "linearised solver drives the internal energy negative in the "
+                "first time step.  This is a documented property of the method, "
+                "not a defect of this implementation (Einfeldt, Munz, Roe & "
+                "Sjoegreen 1991; Toro Sec. 11.4).  A positivity-preserving flux "
+                "such as HLLE or HLLC is required -- see the roadmap in the "
+                "README."
+            ),
+        ),
+        RiemannProblem(
+            name="toro3",
+            description="Left half of the Woodward-Colella blast: pressure ratio 1e5",
+            w_l=(1.0, 0.0, 1000.0),
+            w_r=(1.0, 0.0, 0.01),
+            gamma=1.4,
+            t_end=0.012,
+            reference="Toro Test 3, Sec. 4.3.3",
+        ),
+        RiemannProblem(
+            name="toro4",
+            description="Right half of the blast: two colliding strong shocks",
+            w_l=(5.99924, 19.5975, 460.894),
+            w_r=(5.99242, -6.19633, 46.0950),
+            gamma=1.4,
+            t_end=0.035,
+            reference="Toro Test 4, Sec. 4.3.3",
+        ),
+        RiemannProblem(
+            name="toro5",
+            description="Slowly-moving contact discontinuity (stresses contact resolution)",
+            w_l=(1.0, -19.59745, 1000.0),
+            w_r=(1.0, -19.59745, 0.01),
+            gamma=1.4,
+            t_end=0.012,
+            reference="Toro Test 5, Sec. 4.3.3",
+            roe_note=(
+                "Sensitive to the time step: because the second-order "
+                "correction scales as 1 - |nu|, an artificially small CFL "
+                "number removes the scheme's dissipation and breaks positivity "
+                "here.  Run it at CFL ~ 0.9."
+            ),
+        ),
+        RiemannProblem(
+            name="sonic_rarefaction",
+            description="Transonic left rarefaction: exercises the entropy fix",
+            # u_L > 0 shifts the whole left fan to the right so that the sonic
+            # point u - a = 0 sits inside the domain near the diaphragm.
+            w_l=(1.0, 0.75, 1.0),
+            w_r=(0.125, 0.0, 0.1),
+            gamma=1.4,
+            t_end=0.2,
+            x_diaphragm=0.3,
+            reference="Toro Sec. 11.3 (entropy fix); cf. Sec. 6.4 Test 1 variant",
+        ),
+        RiemannProblem(
+            name="air_shock_tube",
+            description="Dimensional air shock tube (SI units), Mach ~1.35 right-running shock",
+            # Post-shock driver state on the left, ambient air on the right.
+            w_l=(1.204 * 1.8105824688, 225.894320023, 101325.0 * 2.35438333333),
+            w_r=(1.204, 0.0, 101325.0),
+            gamma=1.4,
+            t_end=3.0e-4,
+            reference="original MATLAB driver test_input2o1.m",
+        ),
+    ]
+}
+
+
+def get_problem(name):
+    """Look up a built-in problem by name, with a helpful error message."""
+    key = str(name).strip().lower()
+    if key not in PROBLEMS:
+        raise KeyError(
+            f"unknown problem {name!r}; available problems are "
+            f"{', '.join(sorted(PROBLEMS))}"
+        )
+    return PROBLEMS[key]
+
+
+def list_problems():
+    """Return ``(name, description)`` pairs for every built-in problem."""
+    return [(p.name, p.description) for p in PROBLEMS.values()]
