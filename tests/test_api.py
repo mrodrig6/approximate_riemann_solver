@@ -135,8 +135,14 @@ def test_cli_rejects_unknown_flux(capsys):
 
 
 def test_cli_reports_flux_specific_failure(capsys):
-    """AUSM+ on a problem started from rest explains itself."""
-    assert cli.main(["sod", "--nx", "50", "--flux", "ausm"]) == 1
+    """A second-order failure names the TVD correction as the likely cause.
+
+    AUSM+-up runs every built-in problem at first order; `toro3` is one of the
+    three it cannot take at second order with the characteristic-based
+    limiter, so the message should point at that rather than at the flux.
+    """
+    assert cli.main(["toro3", "--nx", "100", "--flux", "ausmup"]) == 1
     err = capsys.readouterr().err
-    assert "from rest" in err
+    assert "TVD correction" in err
+    assert "second_order=False" in err
     assert "hll" in err  # points at the fluxes that do run everything

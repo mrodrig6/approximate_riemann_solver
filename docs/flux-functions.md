@@ -3,8 +3,9 @@
 > Reference: E. F. Toro, *Riemann Solvers and Numerical Methods for Fluid
 > Dynamics*, 3rd ed., Springer 2009 — **Chapter 10** (HLL and HLLC, and the
 > wave-speed estimates), **Sec. 5.3.4** (Lax–Friedrichs), **Sec. 10.5**
-> (Rusanov). AUSM+ is Liou, *A sequel to AUSM: AUSM+*,
-> J. Comput. Phys. **129**:364 (1996). Roe has its own page:
+> (Rusanov). AUSM+-up is Liou, *A sequel to AUSM, Part II: AUSM+-up for all
+> speeds*, J. Comput. Phys. **214**:137 (2006), with the split polynomials
+> from Liou, J. Comput. Phys. **129**:364 (1996). Roe has its own page:
 > [roe-solver.md](roe-solver.md).
 
 The finite-volume driver of [roe-solver.md](roe-solver.md#6-the-finite-volume-driver)
@@ -30,7 +31,7 @@ python -m riemann sod --flux hllc
 | Roe (+ Harten–Hyman fix) | `roe` | 3 | Toro Ch. 11 |
 | HLLC | `hllc` | 3 | Toro Sec. 10.4 |
 | HLL / HLLE | `hll`, `hlle` | 2 | Toro Secs. 10.3, 10.5 |
-| AUSM+ | `ausm` | 3 (split) | Liou 1996 |
+| AUSM+-up | `ausmup`, `ausm` | 3 (split) | Liou 2006 |
 | Rusanov (local LF) | `rusanov`, `llf` | 0 (scalar) | Toro Sec. 10.5 |
 | Lax–Friedrichs | `lax_friedrichs`, `lf` | 0 (scalar) | Toro Sec. 5.3.4 |
 
@@ -49,8 +50,9 @@ integral form across it. HLL uses two waves and one intermediate state; HLLC
 adds the contact back.
 
 **Flux-vector / flux-difference.** Roe decomposes the jump into
-characteristic waves; AUSM+ splits the flux into a convective part carried by
-a mass flux and a separate pressure part. Both resolve the contact exactly.
+characteristic waves; AUSM+-up splits the flux into a convective part carried
+by an interface velocity and a separate pressure part. Both resolve the
+contact exactly.
 
 ---
 
@@ -104,84 +106,101 @@ is measurably cheaper than Roe (0.33 against 0.51 µs per cell per step).
 
 ---
 
-## 4. AUSM+
+## 4. AUSM+-up
 
 AUSM-family schemes do not decompose the jump at all. They split the flux into
-a convective part carried by an interface mass flux and a separate pressure
+a convective part carried by an interface *velocity* and a separate pressure
 part:
 
-$$\mathbf{F} = \dot{m}_{1/2}\,\mathbf{\Psi}_{\text{upwind}} + \left[0,\ p_{1/2},\ 0\right]^{T}, \qquad \mathbf{\Psi} = \left[1,\ u,\ H\right]^{T},$$
+$$\mathbf{F} = u_{1/2}\,\mathbf{\Psi}_{\text{upwind}} + \left[0,\ p_{1/2},\ 0\right]^{T}, \qquad \mathbf{\Psi} = \left[\rho,\ \rho u,\ E + p\right]^{T},$$
 
-with the interface Mach number and pressure built from polynomial splittings
-of each side's Mach number,
+with $\mathbf{\Psi}$ taken from the left when $u_{1/2} > 0$ and from the right
+otherwise. The interface velocity and pressure are built from polynomial
+splittings of each side's Mach number $M_K = u_K / a_{1/2}$:
 
-$$M_{1/2} = M^{+}_{(4)}(M_L) + M^{-}_{(4)}(M_R), \qquad p_{1/2} = P^{+}_{(5)}(M_L)\,p_L + P^{-}_{(5)}(M_R)\,p_R.$$
+$$u_{1/2} = a_{1/2}\left[M^{+}_{(4)}(M_L) + M^{-}_{(4)}(M_R)\right] + K_p \max\left(1 - \bar{M}^{2},\ 0\right)\frac{p_L - p_R}{\rho_{1/2}\,a_{1/2}},$$
 
-The split polynomials satisfy two exact identities,
+$$p_{1/2} = P^{+}_{(5)}(M_L)\,p_L + P^{-}_{(5)}(M_R)\,p_R + K_u\,P^{+}_{(5)}P^{-}_{(5)}\,\rho_{1/2}\,a_{1/2}\left(u_L - u_R\right),$$
+
+where $a_{1/2} = \tfrac{1}{2}(a_L + a_R)$,
+$\rho_{1/2} = \tfrac{1}{2}(\rho_L + \rho_R)$ and
+$\bar{M}^{2} = \tfrac{1}{2}(M_L^{2} + M_R^{2})$.
+
+The two extra terms are the "-up" of the name. $K_p$ is a pressure-diffusion
+term in the velocity, $K_u$ a velocity-diffusion term in the pressure, and
+the factor $\max(1 - \bar{M}^2, 0)$ switches the first off once the interface
+goes supersonic, where upwinding already supplies enough dissipation.
+
+### Why the $K_p$ term is not optional
+
+Without it — that is, for plain AUSM+ (Liou 1996) — the mass flux is
+identically zero whenever $u_L = u_R = 0$, since
+$M^{+}_{(4)}(0) + M^{-}_{(4)}(0) = 0$ exactly, however large the pressure jump
+is. The momentum equation still feels the pressure difference and accelerates
+the gas, but with the energy flux also zero the growing kinetic energy is
+subtracted from a fixed total energy, and on the light side of a shock tube
+the internal energy goes negative in the first step.
+
+Plain AUSM+ therefore **cannot run Sod's problem at all**. The $K_p$ term
+supplies the missing pressure–velocity coupling, and AUSM+-up runs it without
+difficulty. `test_ausm_up_starts_from_rest` is the guard.
+
+### The split polynomials
+
+$M^{\pm}_{(4)}$ and $P^{\pm}_{(5)}$ are the standard AUSM+ ones, with
+$\beta = 1/8$ and $\alpha = 3/16$. These are not tunable — they are the
+unique values making polynomials of the stated degrees smooth at $|M| = 1$ —
+and they are pinned by two exact identities,
 
 $$M^{+}_{(4)}(M) + M^{-}_{(4)}(M) = M, \qquad P^{+}_{(5)}(M) + P^{-}_{(5)}(M) = 1,$$
 
-which hold for every $M$ and independently of the constants $\beta = 1/8$ and
-$\alpha = 3/16$. Both are checked directly in `tests/test_fluxes.py`, and
-between them they pin the polynomial forms tightly.
+which hold for *every* $M$ and independently of $\alpha$ and $\beta$. Both are
+checked directly in `tests/test_fluxes.py`. Expanded, they give the closed
+forms, for $|M| < 1$:
 
-Because pressure is handled entirely by the separate $p_{1/2}$ term, the
-convective part carries no pressure dissipation, and AUSM+ reproduces a
-contact — stationary **or moving** — exactly.
+$$M^{+}_{(4)} = \tfrac{1}{8}M^{4} + \tfrac{1}{2}M + \tfrac{3}{8},$$
 
-### It cannot start a flow from rest
+$$P^{+}_{(5)} = \tfrac{3}{16}M^{5} - \tfrac{5}{8}M^{3} + \tfrac{15}{16}M + \tfrac{1}{2}.$$
 
-AUSM+ has no pressure–velocity coupling in the *mass* flux. At an interface
-with $u_L = u_R = 0$ the splittings give $M_{1/2} = 0$ exactly, however large
-the pressure jump is, so both the mass flux and the energy flux
-$\dot{m}H$ vanish. The momentum equation still feels the pressure difference
-and accelerates the gas, but with the total energy held fixed, the growing
-kinetic energy is subtracted from the internal energy. On the light side of a
-shock tube the same impulse produces a far larger velocity, and the internal
-energy goes negative in the first step.
+### Provenance of the coefficients
 
-Measured here on Sod with a uniform initial velocity $u_0$:
+$K_p = 0.4$ and $K_u = 0.2$, and the arithmetic-mean $a_{1/2}$, are taken from
+**EMS** (the Eulerian Multicomponent Solver of the same research group),
+`src/riemann_solvers/ausm6.cpp`, where they are benchmarked. They are not
+free parameters to be guessed at, and this repository has the scar tissue to
+prove it.
 
-| $u_0$ | 0 | $10^{-6}$ | $10^{-3}$ | $0.01$ | $0.1$ | $0.5$ |
-| --- | --- | --- | --- | --- | --- | --- |
-| AUSM+ | fails | fails | fails | fails | runs | runs |
+An earlier version of this code reconstructed the `-up` terms without access
+to the 2006 paper, and got them wrong in three compounding ways: Liou's
+critical-speed construction for $a_{1/2}$ instead of the arithmetic mean; a
+spurious $f_a$ all-speed scaling; and, fatally, the $K_u$ term written with
+$K_u = 0.75$ against $(\rho_L + \rho_R)$ rather than $K_u = 0.2$ against
+$\rho_{1/2}$ — making that term **7.5 times too large**.
 
-So it needs a local Mach number of roughly 0.1 to function. It runs the cases
-in this repository that begin with moving gas (`toro2`, `toro5`,
-`sonic_rarefaction`, `air_shock_tube`) perfectly well.
+The result was anti-dissipative. On a plain moving contact, where the exact
+answer is that pressure stays constant, it amplified round-off by a factor of
+about 1.5 per step until the pressure error reached 50%; the measured
+stability threshold sat near 0.35 in its own parameterisation, well below the
+1.5 it was effectively applying.
 
-This is not a defect of the implementation — it is precisely the deficiency
-that **AUSM+-up** (Liou 2006) was written to cure, by adding a
-pressure-difference term $M_p$ to the mass flux.
+The lesson is worth stating because it generalises: the sign and structure of
+both terms were *right*, and every identity test passed. Consistency
+identities constrain the split polynomials, not the diffusion coefficients.
+What caught it was a physical invariant —
+`test_moving_contact_keeps_pressure_constant` — and that test is now the guard
+against the coefficients drifting again.
 
-### What is not implemented: AUSM+-up and SLAU
+### What is still not implemented: SLAU
 
-Neither the `-up` low-Mach extension of AUSM+ nor the SLAU scheme
-(Shima & Kitamura, AIAA J. **49**:1693, 2011) is included, and the reason is
-worth stating plainly rather than leaving as a silent omission.
+The **SLAU** scheme (Shima & Kitamura, AIAA J. **49**:1693, 2011) is not
+included. Its defining functions $g$ and $\chi$ could not be verified: the
+environment this work was done in allows outbound network access to GitHub and
+the package registries only, so the paper and every secondary source that
+restates it in full were unreachable, and EMS does not implement it.
 
-The environment this work was done in allows outbound network access to
-GitHub and the package registries only; the 2006 and 2011 papers, and every
-secondary source that restates their coefficients in full, were unreachable.
-Their defining pieces — AUSM+-up's $M_p$ and $p_u$ terms and the function
-$f_a$, SLAU's functions $g$ and $\chi$ — could therefore not be checked.
-
-A reconstruction of AUSM+-up's $p_u$ term from memory was implemented and
-tested, and it is **wrong**: on a plain moving contact it amplified round-off
-by a factor of about 1.5 per step until the pressure error reached 50%, and
-the measured stability threshold sat near $K_u = 0.35$ against the published
-value of $0.75$. The sign agrees with the acoustic Riemann solution, so the
-error is structural rather than a slipped minus sign, and it could not be
-resolved without the source. Shipping an unverifiable term that is
-demonstrably unstable on a textbook problem would be worse than shipping the
-well-established scheme it extends.
-
-Both are straightforward to add once the papers are to hand:
-`riemann/fluxes.py` is arranged so that $M_p$ and $p_u$ slot into `m_half`
-and `p_half` in `ausm_plus_flux`, and the test suite already contains the
-moving-contact test that caught the bad reconstruction.
-
----
+Given what happened with the $K_u$ coefficient above, guessing at $g$ and
+$\chi$ would be a poor idea. `riemann/fluxes.py` is structured so SLAU slots
+in beside AUSM+-up when the formulation is to hand.
 
 ## 5. Measured behaviour
 
@@ -191,22 +210,27 @@ the $L_1$ error is at 200 cells; the cost is at 800 cells.
 
 | Flux | Contact width | $L_1$ error in $\rho$ | µs / cell / step |
 | --- | --- | --- | --- |
-| Roe | 2 cells | $1.44 \times 10^{-3}$ | 0.51 |
-| HLLC | 3 cells | $2.10 \times 10^{-3}$ | 0.33 |
-| HLL | 8 cells | $4.04 \times 10^{-3}$ | 0.36 |
-| AUSM+ | — (cannot run) | — | 0.27 |
+| Roe | 2 cells | $1.44 \times 10^{-3}$ | 0.48 |
+| HLLC | 3 cells | $2.10 \times 10^{-3}$ | 0.31 |
+| AUSM+-up | 4 cells | $6.59 \times 10^{-3}$ | 0.24 |
+| HLL | 8 cells | $4.04 \times 10^{-3}$ | 0.35 |
 | Rusanov | 19 cells | $1.28 \times 10^{-2}$ | 0.36 |
-| Lax–Friedrichs | 24 cells | $2.22 \times 10^{-2}$ | 0.36 |
+| Lax–Friedrichs | 24 cells | $2.22 \times 10^{-2}$ | 0.34 |
 
 ![Numerical fluxes at the contact discontinuity](figures/flux_comparison.png)
 
-The ordering is not a coincidence or a tuning artefact: it follows directly
-from how much of the wave structure each flux resolves. Every one of them
-captures the *shock* in one or two cells — it is the contact that separates
-them, exactly as the theory says it should.
+For the wave-based fluxes the ordering is not a coincidence or a tuning
+artefact: it follows directly from how much of the wave structure each
+resolves. Every one of them captures the *shock* in one or two cells — it is
+the contact that separates them, exactly as the theory says it should.
+`tests/test_fluxes.py::test_accuracy_ordering_on_sod` asserts
+Roe < HLLC < HLL < Rusanov < Lax–Friedrichs, so it cannot silently regress.
 
-`tests/test_fluxes.py::test_accuracy_ordering_on_sod` asserts the ordering, so
-it cannot silently regress.
+AUSM+-up sits outside that ordering, and the table shows why it is worth
+having: it resolves the contact in 4 cells — second only to Roe and HLLC —
+and it is the **cheapest** flux here, because it never forms an eigensystem
+or a wave-speed estimate. Its larger $L_1$ error is accumulated away from the
+contact, in the rarefaction fan.
 
 ---
 
@@ -214,20 +238,21 @@ it cannot silently regress.
 
 Which fluxes run which problems, at second order with superbee:
 
-| Problem | Roe | HLLC | HLL | AUSM+ | Rusanov | LF |
+| Problem | Roe | HLLC | HLL | AUSM+-up | Rusanov | LF |
 | --- | --- | --- | --- | --- | --- | --- |
-| `sod` | ✓ | ✓ | ✓ | ✗ rest | ✓ | ✓ |
-| `toro2` (near vacuum) | ✗ | ✓ | ✓ | ✗ rest | ✓ | ✓ |
-| `toro3` | ✓ | ✓ | ✓ | ✗ rest | ✓ | ✓ |
-| `toro4` | ✓ | ✓ | ✓ | ✗ rest | ✓ | ✓ |
-| `toro5` | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| `sod` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `toro2` (near vacuum) | ✗ | ✓ | ✓ | ✗ 2nd | ✓ | ✓ |
+| `toro3` | ✓ | ✓ | ✓ | ✗ 2nd | ✓ | ✓ |
+| `toro4` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `toro5` | ✓ | ✓ | ✓ | ✗ 2nd | ✗ 2nd | ✓ |
 | `sonic_rarefaction` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `air_shock_tube` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-"✗ rest" is the AUSM+ start-from-rest limitation of §4, not a near-vacuum
-failure.
+"✗ 2nd" means the *flux* runs the problem but the second-order scheme does
+not: every one of those cases succeeds with `second_order=False`. Only Roe on
+`toro2` is a failure of the flux itself.
 
-Two entries deserve comment.
+Three entries deserve comment.
 
 **Roe on `toro2`** is the near-vacuum breakdown described in
 [roe-solver.md](roe-solver.md#5-known-limitation-roes-solver-is-not-positivity-preserving).
@@ -249,6 +274,16 @@ correction, which the flux's positivity proof does not cover. "The flux is
 positivity-preserving" and "the scheme is positivity-preserving" are
 different statements, and only `hll`, `hllc` and `lax_friedrichs` are listed
 in `riemann.fluxes.ROBUST_FLUXES`.
+
+**AUSM+-up on `toro2`, `toro3` and `toro5`** is the same story. The flux runs
+*every* built-in problem at first order —
+`test_ausm_up_runs_every_problem_at_first_order` asserts exactly that, and on
+`toro5` it is the most accurate first-order flux of the six. What fails is the
+pairing with this package's characteristic-based TVD correction on the three
+most extreme cases. That pairing is this repository's choice, not Liou's and
+not EMS's: EMS reconstructs with WENO rather than limiting Roe characteristic
+fields, which is the more natural companion for a flux that never forms an
+eigensystem.
 
 ---
 
@@ -284,8 +319,9 @@ wanted.
 - **HLL** when positivity matters more than contact resolution.
 - **Rusanov** as a cheap, simple fallback; first order only if you need its
   positivity guarantee.
-- **AUSM+** for flows that are everywhere moving; never for a problem started
-  from rest.
+- **AUSM+-up** when speed matters: it is the cheapest flux here and resolves
+  contacts well. Prefer `second_order=False` on very strong shocks, or pair it
+  with a WENO reconstruction as EMS does.
 - **Lax–Friedrichs** for teaching, as the baseline the others are measured
   against.
 

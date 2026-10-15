@@ -44,13 +44,11 @@ def contact_width(sol):
 runs = []
 print(f"Sod's problem, {nx} cells, superbee limiter, CFL 0.9\n")
 print(f"{'flux':<18} {'contact':>9} {'L1 (rho)':>12}")
-for name in ("roe", "hllc", "hll", "ausm", "rusanov", "lax_friedrichs"):
+for name in ("roe", "hllc", "hll", "ausmup", "rusanov", "lax_friedrichs"):
     try:
         sol = solve_roe(gamma, w_left, w_right, t_end, nx=nx, flux=name)
     except FloatingPointError:
-        # AUSM+ has no pressure-velocity coupling in its mass flux, so it
-        # cannot start a flow from rest.  See riemann.fluxes.ausm_plus_flux.
-        print(f"{name:<18} {'--':>9} {'cannot start from rest':>12}")
+        print(f"{name:<18} {'--':>9} {'did not run':>12}")
         continue
     err = np.mean(np.abs(sol.rho - reference.rho))
     print(f"{name:<18} {contact_width(sol):>6d} cells {err:>12.4e}")
@@ -69,6 +67,7 @@ for ax in axes[:2]:
 
 print("\nwrote", save_figure(fig, "fluxes_example.png"))
 print(
-    "\nAUSM+ runs the same problem once the gas is moving, e.g.\n"
-    "    solve_roe(1.4, [1, 0.5, 1], [0.125, 0.5, 0.1], 0.25, flux='ausm')"
+    "\nAUSM+-up runs every built-in problem at first order; at second order\n"
+    "the characteristic-based TVD correction limits it on the most extreme\n"
+    "cases (toro2, toro3, toro5).  Try second_order=False there."
 )

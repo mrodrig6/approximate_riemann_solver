@@ -186,12 +186,12 @@ them captures the shock in one or two cells.
 | --- | --- | --- |
 | Roe | 2 cells | $1.44 \times 10^{-3}$ |
 | HLLC | 3 cells | $2.10 \times 10^{-3}$ |
+| AUSM+-up | 4 cells | $6.59 \times 10^{-3}$ |
 | HLL | 8 cells | $4.04 \times 10^{-3}$ |
-| AUSM+ | cannot run (starts from rest) | — |
 | Rusanov | 19 cells | $1.28 \times 10^{-2}$ |
 | Lax-Friedrichs | 24 cells | $2.22 \times 10^{-2}$ |
 
-Full discussion, including why AUSM+ cannot start a flow from rest and why
+Full discussion, including the AUSM+-up coefficients adapted from EMS and why
 Lax-Friedrichs ignores the TVD correction entirely, is in
 [flux-functions.md](flux-functions.md).
 
@@ -224,7 +224,7 @@ without any tuning — here in 3 Newton iterations.
 pytest
 ```
 
-140 tests covering, among others:
+142 tests covering, among others:
 
 - star-region values against Toro's Table 4.1 for all five of his test
   problems;
@@ -242,9 +242,10 @@ pytest
 - Toro Test 2 failing for Roe with the documented message, and succeeding
   for HLLC and HLL;
 - consistency, `F(U, U) = F(U)`, for every flux over a spread of states;
-- the two exact AUSM+ split-function identities;
-- exact contact preservation (stationary and moving) for Roe, HLLC and AUSM+,
-  and its absence for HLL, Rusanov and Lax-Friedrichs;
+- the two exact AUSM+ split-function identities, and the moving-contact
+  invariant that caught a mis-scaled AUSM+-up coefficient;
+- exact contact preservation (stationary and moving) for Roe, HLLC and
+  AUSM+-up, and its absence for HLL, Rusanov and Lax-Friedrichs;
 - the measured accuracy ordering Roe < HLLC < HLL < Rusanov < Lax-Friedrichs;
 - Lax-Friedrichs odd-even decoupling nullifying the limiter.
 

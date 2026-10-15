@@ -115,12 +115,6 @@ PROBLEMS = {
             gamma=1.4,
             t_end=0.25,
             reference="Toro Test 1, Sec. 4.3.3 / Table 4.1",
-            flux_note=(
-                "Starts from rest, so the AUSM+ flux (--flux ausm) cannot run "
-                "it: with u = 0 on both sides its mass flux is identically "
-                "zero whatever the pressure jump.  That is the deficiency "
-                "AUSM+-up was written to cure; see riemann.fluxes."
-            ),
         ),
         RiemannProblem(
             name="toro2",
@@ -138,7 +132,8 @@ PROBLEMS = {
                 "not a defect of this implementation (Einfeldt, Munz, Roe & "
                 "Sjoegreen 1991; Toro Sec. 11.4).  Use a positivity-preserving "
                 "flux instead: --flux hllc (recommended), hll, rusanov or "
-                "lax_friedrichs all run it."
+                "lax_friedrichs all run it at second order, and ausmup runs "
+                "it at first order."
             ),
         ),
         RiemannProblem(

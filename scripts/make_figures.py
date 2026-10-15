@@ -280,17 +280,16 @@ def figure_flux_comparison():
     zoomed on the contact, which is where the fluxes actually differ -- all of
     them capture the shock in one or two cells.
 
-    AUSM+ cannot run Sod (it has no pressure-velocity coupling in the mass
-    flux, so it cannot start a flow from rest); its panel says so rather than
-    being silently dropped.
+    Any flux that cannot run the case is labelled as such rather than being
+    silently dropped.
     """
     prob = get_problem("sod")
     nx = 100
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=2000)
 
-    names = ["roe", "hllc", "hll", "ausm", "rusanov", "lax_friedrichs"]
+    names = ["roe", "hllc", "hll", "ausmup", "rusanov", "lax_friedrichs"]
     pretty = {
-        "roe": "Roe", "hllc": "HLLC", "hll": "HLL", "ausm": "AUSM+",
+        "roe": "Roe", "hllc": "HLLC", "hll": "HLL", "ausmup": "AUSM+-up",
         "rusanov": "Rusanov", "lax_friedrichs": "Lax-Friedrichs",
     }
 

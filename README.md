@@ -22,7 +22,7 @@ chapter and equation number it comes from.
   sampling of the wave fan. Reproduces Toro's Table 4.1 to all published
   digits.
 - **Six numerical fluxes**, interchangeable via one argument: **Roe** (with
-  the **Harten–Hyman entropy fix**), **HLLC**, **HLL/HLLE**, **AUSM+**,
+  the **Harten–Hyman entropy fix**), **HLLC**, **HLL/HLLE**, **AUSM+-up**,
   **Rusanov** and **Lax–Friedrichs**.
 - **Second-order TVD extension** with a choice of flux limiters — superbee,
   minmod, van Leer, van Albada — applied wave by wave.
@@ -30,7 +30,7 @@ chapter and equation number it comes from.
   dimensional (SI) air shock tube.
 - **Numba acceleration**, roughly 100× over pure Python, with a transparent
   fallback when Numba is not installed.
-- **140 tests** checking the solvers against Toro's published values and
+- **142 tests** checking the solvers against Toro's published values and
   against their own defining identities (the Roe U-property, the AUSM+ split
   identities, Sweby's TVD region, exact contact preservation, exact
   conservation).
@@ -149,7 +149,7 @@ in **[`docs/`](docs/index.md)**:
 | --- | --- |
 | [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{*}) = 0$, sampling, vacuum |
 | [Roe's approximate Riemann solver](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
-| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 1996: HLL, HLLC, AUSM+, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
+| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: HLL, HLLC, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
 | [Second-order accuracy and TVD flux limiters](docs/tvd-extension.md) | Toro Ch. 13–14: Godunov's theorem, flux limiting, Sweby's region |
 | [Validation and results](docs/validation.md) | All figures and the numbers behind them |
 | [Porting notes: MATLAB to Python](docs/porting-notes.md) | File mapping and every bug fixed in the port |
@@ -189,16 +189,18 @@ shock in one or two cells.
 
 | Flux | Contact width | $L_1$ error in $\rho$ (200 cells) | µs / cell / step |
 | --- | --- | --- | --- |
-| Roe | 2 cells | $1.44 \times 10^{-3}$ | 0.51 |
-| HLLC | 3 cells | $2.10 \times 10^{-3}$ | 0.33 |
-| HLL | 8 cells | $4.04 \times 10^{-3}$ | 0.36 |
-| AUSM+ | cannot start from rest | — | 0.27 |
+| Roe | 2 cells | $1.44 \times 10^{-3}$ | 0.48 |
+| HLLC | 3 cells | $2.10 \times 10^{-3}$ | 0.31 |
+| AUSM+-up | 4 cells | $6.59 \times 10^{-3}$ | 0.24 |
+| HLL | 8 cells | $4.04 \times 10^{-3}$ | 0.35 |
 | Rusanov | 19 cells | $1.28 \times 10^{-2}$ | 0.36 |
-| Lax–Friedrichs | 24 cells | $2.22 \times 10^{-2}$ | 0.36 |
+| Lax–Friedrichs | 24 cells | $2.22 \times 10^{-2}$ | 0.34 |
 
 **HLLC is the best general-purpose choice**: contacts nearly as sharp as Roe,
 cheaper, no entropy fix needed, and it runs every built-in problem — including
-`toro2`, the near-vacuum case where Roe fails outright.
+`toro2`, the near-vacuum case where Roe fails outright. **AUSM+-up** is the
+cheapest of the six and resolves the contact in 4 cells; its coefficients are
+adapted from the benchmarked implementation in EMS.
 
 ![Toro Test 2 with HLLC and HLL](docs/figures/toro2_positivity.png)
 
@@ -251,7 +253,7 @@ riemann/              the Python package
   thermo.py             equation of state, variable conversions, Euler flux
   exact.py              exact Riemann solver
   roe.py                Roe average, eigenstructure, Roe flux, entropy fix
-  fluxes.py             HLL, HLLC, AUSM+, Rusanov, Lax-Friedrichs; TVD term
+  fluxes.py             HLL, HLLC, AUSM+-up, Rusanov, Lax-Friedrichs; TVD term
   limiters.py           superbee, minmod, van Leer, van Albada
   solver.py             finite-volume driver, CFL, boundary conditions
   problems.py           Toro's test problems
@@ -261,7 +263,7 @@ riemann/              the Python package
 docs/                 formulation, validation, porting notes, figures
 examples/             four runnable examples
 scripts/              figure generation and benchmarking
-tests/                140 pytest tests
+tests/                142 pytest tests
 matlab_legacy/        the original MATLAB implementation, archived
 ```
 
@@ -269,19 +271,16 @@ matlab_legacy/        the original MATLAB implementation, archived
 
 ## Roadmap
 
-- **AUSM+-up** (Liou 2006) and **SLAU** (Shima & Kitamura 2011). Both were
-  attempted and deliberately left out: the environment this work was done in
-  could not reach the papers, and a reconstruction of AUSM+-up's `p_u` term
-  from memory proved unstable on a moving contact. `riemann/fluxes.py` is
-  arranged so the missing terms slot straight in, and the test that caught
-  the bad reconstruction is already in the suite. See
-  [the write-up](docs/flux-functions.md#what-is-not-implemented-ausm-up-and-slau).
+- **SLAU** (Shima & Kitamura 2011). Left out: its functions `g` and `chi`
+  could not be verified from this environment, and EMS does not implement it.
+  `riemann/fluxes.py` is arranged so it slots in beside AUSM+-up. See
+  [the write-up](docs/flux-functions.md#what-is-still-not-implemented-slau).
 - MUSCL-Hancock reconstruction (Toro Ch. 14) as an alternative route to second
   order.
 - Extension to two dimensions by dimensional splitting (Toro Ch. 16).
 - Stiffened-gas and Mie–Grüneisen equations of state.
 
-Done: HLL, HLLE, HLLC, Rusanov and Lax–Friedrichs (this release).
+Done: HLL, HLLE, HLLC, AUSM+-up, Rusanov and Lax–Friedrichs.
 
 ---
 

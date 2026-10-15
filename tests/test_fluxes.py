@@ -19,7 +19,7 @@ from riemann.fluxes import (
     _m4_plus,
     _p5_minus,
     _p5_plus,
-    ausm_plus_flux,
+    ausm_up_flux,
     flux_code,
     hll_flux,
     hllc_flux,
@@ -63,14 +63,14 @@ def _evaluate(name, u_l, u_r, dx=0.01, dt=0.001):
         rusanov_flux(u_l, u_r, GAMMA, out)
     elif name == "lax_friedrichs":
         lax_friedrichs_flux(u_l, u_r, GAMMA, dx, dt, out)
-    elif name == "ausm":
-        ausm_plus_flux(u_l, u_r, GAMMA, out)
+    elif name == "ausmup":
+        ausm_up_flux(u_l, u_r, GAMMA, out)
     else:
         raise AssertionError(f"unhandled flux {name}")
     return out
 
 
-DIRECT_FLUXES = ["hll", "hllc", "rusanov", "lax_friedrichs", "ausm"]
+DIRECT_FLUXES = ["hll", "hllc", "rusanov", "lax_friedrichs", "ausmup"]
 
 
 # --------------------------------------------------------------------------- #
@@ -83,7 +83,7 @@ def test_flux_code_accepts_names_aliases_and_integers():
     assert flux_code("hlle") == flux_code("hll")
     assert flux_code("llf") == flux_code("rusanov")
     assert flux_code("lf") == flux_code("lax_friedrichs")
-    assert flux_code("AUSM+") == flux_code("ausm")
+    assert flux_code("AUSM+-up") == flux_code("ausmup") == flux_code("ausm")
     assert flux_code(flux_code("roe")) == flux_code("roe")
     with pytest.raises(ValueError, match="unknown flux"):
         flux_code("not-a-flux")
@@ -108,7 +108,7 @@ def test_flux_is_consistent(name, w):
                                                   abs=1e-12)
 
 
-@pytest.mark.parametrize("name", ["hll", "hllc", "ausm"])
+@pytest.mark.parametrize("name", ["hll", "hllc", "ausmup"])
 def test_upwind_fluxes_are_exact_when_supersonic(name):
     """At a fully supersonic interface an upwind flux is the upwind physical one.
 
@@ -183,9 +183,9 @@ def test_ausm_pressure_splitting_is_non_negative():
 # Contact resolution -- the property that separates the families
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.parametrize("name", ["roe", "hllc", "ausm"])
+@pytest.mark.parametrize("name", ["roe", "hllc", "ausmup"])
 def test_contact_preserving_fluxes_are_exact_on_a_stationary_contact(name):
-    """Roe, HLLC and AUSM+ carry a stationary contact with zero dissipation.
+    """Roe, HLLC and AUSM+-up carry a stationary contact with zero dissipation.
 
     A contact has uniform ``u`` and ``p`` and a jump only in ``rho``.  A flux
     that resolves the middle wave leaves it untouched for all time.
@@ -216,13 +216,14 @@ def test_two_wave_fluxes_smear_a_stationary_contact(name):
     assert between > 10
 
 
-@pytest.mark.parametrize("name", ["roe", "hllc", "ausm"])
+@pytest.mark.parametrize("name", ["roe", "hllc", "ausmup"])
 def test_moving_contact_keeps_pressure_constant(name):
     """A contact advected at uniform speed must not generate pressure.
 
     This is the test that caught an unstable reconstruction of AUSM+-up's
-    ``p_u`` term: it amplified round-off by ~1.5 per step until the pressure
-    error reached 50%.  Plain AUSM+ passes to machine precision.
+    ``K_u`` term: with that term 7.5x too large it amplified round-off by
+    about 1.5 per step until the pressure error reached 50%.  With the
+    coefficients adapted from EMS it passes to machine precision.
     """
     sol = solve_roe(
         GAMMA, [1.0, 1.0, 1.0], [0.125, 1.0, 1.0], 0.3, nx=100,
@@ -249,8 +250,6 @@ def test_every_flux_conserves_mass_and_energy(name):
     """Every flux is in conservation form, so the totals obey the boundary flux."""
     prob = get_problem("sod")
     t_end, nx = 0.15, 100
-    if name == "ausm":
-        pytest.skip("AUSM+ cannot start a flow from rest; covered separately")
     sol = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx, flux=name)
     initial = primitive_to_conservative(
         np.where((sol.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),
@@ -298,7 +297,8 @@ def test_accuracy_ordering_on_sod():
 
     This ordering follows directly from how much of the wave structure each
     flux resolves, and it is the single clearest summary of what the fluxes
-    differ in.  AUSM+ is excluded: it cannot run a problem started from rest.
+    differ in.  AUSM+-up is excluded because it is not a wave-based scheme and
+    does not slot into the same ordering.
     """
     prob = get_problem("sod")
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
@@ -314,19 +314,41 @@ def test_accuracy_ordering_on_sod():
     )
 
 
-def test_ausm_cannot_start_from_rest_but_runs_moving_flow():
-    """Characterisation test for the AUSM+ low-Mach limitation.
+def test_ausm_up_starts_from_rest():
+    """The ``K_p`` term is what lets AUSM+-up start a flow from rest.
 
-    Pins the documented behaviour so that adding the AUSM+-up ``M_p`` term
-    later is noticed here.
+    Plain AUSM+ (no ``K_p``) has a mass flux that is identically zero when
+    ``u_L = u_R = 0``, whatever the pressure jump, and cannot run Sod's
+    problem at all.  The pressure-diffusion term supplies the missing
+    pressure-velocity coupling.  This test is the guard against that term
+    being dropped or mis-scaled.
     """
-    with pytest.raises(FloatingPointError, match="non-physical"):
-        solve_roe(GAMMA, [1.0, 0.0, 1.0], [0.125, 0.0, 0.1], 0.25, nx=200, flux="ausm")
-    # The same problem translated to a moving frame runs fine.
+    prob = get_problem("sod")
     sol = solve_roe(
-        GAMMA, [1.0, 0.5, 1.0], [0.125, 0.5, 0.1], 0.25, nx=200, flux="ausm"
+        prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="ausmup"
     )
     assert np.all(sol.p > 0)
+    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
+    assert np.mean(np.abs(sol.rho - exact.rho)) < 0.02
+
+
+def test_ausm_up_runs_every_problem_at_first_order():
+    """The AUSM+-up flux itself handles the whole catalogue.
+
+    At second order it fails on the three most extreme cases (`toro2`,
+    `toro3`, `toro5`), exactly as Rusanov does on `toro5`: the failure is in
+    the characteristic-based TVD correction this package pairs it with, not
+    in the flux.  EMS pairs AUSM with WENO reconstruction instead.
+    """
+    from riemann.problems import PROBLEMS
+
+    for prob in PROBLEMS.values():
+        sol = solve_roe(
+            prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+            x_diaphragm=prob.x_diaphragm, flux="ausmup", second_order=False,
+        )
+        assert np.all(sol.rho > 0), prob.name
+        assert np.all(sol.p > 0), prob.name
 
 
 def test_lax_friedrichs_odd_even_decoupling_disables_the_limiter():

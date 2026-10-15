@@ -30,11 +30,11 @@ entropy fix for transonic rarefactions; the solver's one hard limitation
 CFL condition and boundary conditions.
 
 ### [3. Numerical flux functions](flux-functions.md)
-*Toro Chapter 10; Liou 1996.* HLL with Einfeldt wave speeds, HLLC and its
-contact wave, AUSM+ and its flux splitting, Rusanov and Lax-Friedrichs;
+*Toro Chapter 10; Liou 2006.* HLL with Einfeldt wave speeds, HLLC and its
+contact wave, AUSM+-up and its flux splitting, Rusanov and Lax-Friedrichs;
 measured contact resolution, accuracy and cost for all six; which fluxes run
-which problems and why; and what is deliberately not implemented
-(AUSM+-up's low-Mach terms, SLAU) with the evidence behind that decision.
+which problems and why; where the AUSM+-up coefficients come from, and what
+a mis-scaled one did; and what is still not implemented (SLAU).
 
 ### [4. Second-order accuracy and TVD flux limiters](tvd-extension.md)
 *Toro Chapters 13 and 14.* Godunov's theorem and why a nonlinear scheme is
@@ -75,6 +75,7 @@ removed during the port itself.
 | $\phi(r)$ | flux limiter |
 | $S_L,\ S_R,\ S_*$ | HLL/HLLC left, right and contact wave speeds |
 | $M^{\pm}_{(4)},\ P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
+| $K_p,\ K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
 
 ### Modules
 
@@ -83,7 +84,7 @@ removed during the port itself.
 | `riemann/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
 | `riemann/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
 | `riemann/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
-| `riemann/fluxes.py` | HLL, HLLC, AUSM+, Rusanov, Lax-Friedrichs; dispatch; TVD term |
+| `riemann/fluxes.py` | HLL, HLLC, AUSM+-up, Rusanov, Lax-Friedrichs; dispatch; TVD term |
 | `riemann/limiters.py` | superbee, minmod, van Leer, van Albada |
 | `riemann/solver.py` | conservative update, CFL time step, boundary conditions |
 | `riemann/problems.py` | Toro's test problems and two extras |

@@ -17,7 +17,7 @@ Name               Origin
                    (Toro Secs. 10.3, 10.5); i.e. the HLLE variant
 ``hllc``           HLL with a restored Contact wave (Toro Sec. 10.4)
 ``roe``            Roe with the Harten-Hyman entropy fix (Toro Ch. 11)
-``ausm``           AUSM+, Liou, J. Comput. Phys. 129:364 (1996)
+``ausmup``         AUSM+-up, Liou, J. Comput. Phys. 214:137 (2006)
 =================  ====================================================
 
 They fall into three families, and it is worth knowing which is which
@@ -31,12 +31,10 @@ because it predicts how each behaves:
   (HLL) or three (HLLC) waves and a consistent integral average between them.
   Positivity-preserving for the right wave-speed estimates, and HLLC restores
   the contact that HLL averages away.
-* **Flux-vector / AUSM-type** (``ausm``) and **flux-difference** (``roe``).
+* **Flux-vector / AUSM-type** (``ausmup``) and **flux-difference** (``roe``).
   Both resolve all three fields exactly at a contact.  Roe is additionally
-  exact for an isolated shock.
-
-See :func:`ausm_plus_flux` for a note on what is *not* implemented here: the
-low-Mach ``-up`` extension of AUSM+, and the SLAU scheme.
+  exact for an isolated shock; AUSM+-up is built for uniform accuracy from
+  low Mach number to hypersonic.
 
 Second-order extension
 ----------------------
@@ -83,7 +81,7 @@ FLUX_HLL = 1
 FLUX_HLLC = 2
 FLUX_RUSANOV = 3
 FLUX_LF = 4
-FLUX_AUSM = 5
+FLUX_AUSMUP = 5
 
 #: Accepted flux names, including aliases, mapped to their integer code.
 FLUXES = {
@@ -99,8 +97,9 @@ FLUXES = {
     "locallaxfriedrichs": FLUX_RUSANOV,
     "laxfriedrichs": FLUX_LF,
     "lf": FLUX_LF,
-    "ausm": FLUX_AUSM,
-    "ausmplus": FLUX_AUSM,   # "ausm+" normalises to this
+    "ausmup": FLUX_AUSMUP,
+    "ausmplusup": FLUX_AUSMUP,   # "ausm+-up" and "ausm+up" normalise to this
+    "ausm": FLUX_AUSMUP,         # convenient short form
 }
 
 #: Canonical display name for each code (inverse of :data:`FLUXES`).
@@ -110,7 +109,7 @@ FLUX_NAMES = {
     FLUX_HLLC: "hllc",
     FLUX_RUSANOV: "rusanov",
     FLUX_LF: "lax_friedrichs",
-    FLUX_AUSM: "ausm",
+    FLUX_AUSMUP: "ausmup",
 }
 
 #: Fluxes that run every built-in problem at second order, Toro's near-vacuum
@@ -351,12 +350,24 @@ def hllc_flux(u_l, u_r, gamma, out):
 # AUSM-type flux
 # --------------------------------------------------------------------------- #
 #
-# AUSM+ constants, Liou, "A sequel to AUSM: AUSM+", J. Comput. Phys. 129:364
-# (1996).  These are not tunable: beta = 1/8 and alpha = 3/16 are the unique
-# values that make the split Mach and pressure polynomials of the stated
-# degrees smooth at |M| = 1, which is what the scheme is built on.
+# AUSM+-up constants.  Two groups, with different standing.
+#
+# beta = 1/8 and alpha = 3/16 fix the split Mach and pressure polynomials
+# (Liou, J. Comput. Phys. 129:364, 1996).  They are not tunable: they are the
+# unique values that make polynomials of the stated degrees smooth at
+# |M| = 1.  Expanded, they give exactly the closed polynomial forms used in
+# EMS -- see the note in `ausm_up_flux`.
 _AUSM_BETA = 0.125     # beta in the split Mach polynomials M+_(4), M-_(4)
 _AUSM_ALPHA = 0.1875   # alpha = 3/16 in the pressure splittings P+_(5), P-_(5)
+
+# K_p and K_u scale the two "-up" diffusion terms (Liou, J. Comput. Phys.
+# 214:137, 2006).  These *are* tunable, and the values below are the ones used
+# and benchmarked in EMS (the Eulerian Multicomponent Solver of the same
+# research group), `src/riemann_solvers/ausm6.cpp`.  They are not the values
+# an earlier version of this file guessed at; see `ausm_up_flux` for what went
+# wrong and why it matters.
+_AUSM_KP = 0.4         # pressure-diffusion term in the interface velocity
+_AUSM_KU = 0.2         # velocity-diffusion term in the interface pressure
 
 
 @njit
@@ -428,113 +439,111 @@ def _p5_minus(m, alpha):
 
 
 @njit
-def ausm_plus_flux(u_l, u_r, gamma, out):
-    """AUSM+ flux (Liou, J. Comput. Phys. 129:364, 1996).
+def ausm_up_flux(u_l, u_r, gamma, out):
+    """AUSM+-up flux (Liou, J. Comput. Phys. 214:137, 2006).
 
-    AUSM-family schemes split the flux into a *convective* part carried by an
-    interface mass flux and a *pressure* part, rather than decomposing the
-    jump into waves:
+    AUSM-family schemes do not decompose the jump into waves.  They split the
+    flux into a *convective* part carried by an interface velocity and a
+    separate *pressure* part:
 
-        F = mdot_1/2 * Psi_(upwind) + [0, p_1/2, 0],   Psi = [1, u, H]
+        F = u_1/2 * Psi_(upwind) + [0, p_1/2, 0],   Psi = [rho, rho u, E + p]
 
-    The interface Mach number and pressure come from polynomial splittings of
-    each side's Mach number,
+    with the convective vector upwinded on the sign of ``u_1/2``.  Because the
+    pressure is handled entirely by ``p_1/2``, the convective part carries no
+    pressure dissipation, and the scheme reproduces a contact discontinuity --
+    stationary or moving -- exactly.
 
-        M_1/2 = M+_(4)(M_L) + M-_(4)(M_R),
-        p_1/2 = P+_(5)(M_L) p_L + P-_(5)(M_R) p_R,
+    The interface velocity and pressure are built from polynomial splittings of
+    each side's Mach number ``M_K = u_K / a_1/2``, plus the two "-up" terms
+    that give the scheme its name:
 
-    and the convective vector is upwinded on the sign of ``mdot``.  Because
-    the pressure is handled entirely by the separate ``p_1/2`` term, the
-    convective part carries no pressure dissipation, and AUSM+ reproduces a
-    contact discontinuity -- stationary or moving -- exactly.  The test suite
-    checks both.
+        u_1/2 = a_1/2 [M+_(4)(M_L) + M-_(4)(M_R)]
+                + K_p max(1 - Mbar^2, 0) (p_L - p_R) / (rho_1/2 a_1/2),
 
-    Known limitation: it cannot start a flow from rest
-    ---------------------------------------------------
-    AUSM+ has no pressure-velocity coupling in the *mass* flux.  At an
-    interface with ``u_L = u_R = 0`` the split Mach numbers give
-    ``M_1/2 = M+_(4)(0) + M-_(4)(0) = 0`` exactly, however large the pressure
-    jump is, so both the mass flux and the energy flux ``mdot H`` vanish.  The
-    momentum equation still feels the pressure difference and accelerates the
-    gas, but with the total energy held fixed the growing kinetic energy is
-    subtracted from the internal energy.  On the light side of a shock tube
-    the same impulse produces a much larger velocity, and the internal energy
-    goes negative in the first step.
+        p_1/2 = P+_(5)(M_L) p_L + P-_(5)(M_R) p_R
+                + K_u P+_(5) P-_(5) rho_1/2 a_1/2 (u_L - u_R),
 
-    The practical consequence is sharp: this flux cannot run Sod's problem, or
-    any other case started from rest.  Measured here on Sod with a uniform
-    initial velocity ``u_0``, it fails for ``u_0 <= 0.01`` and succeeds from
-    ``u_0 >= 0.1`` -- i.e. it needs a local Mach number of roughly 0.1 to
-    function.  It runs the cases in this repository that begin with moving gas
-    (``toro2``, ``toro5``, ``sonic_rarefaction``, ``air_shock_tube``) perfectly
-    well.
+    where ``a_1/2 = (a_L + a_R)/2``, ``rho_1/2 = (rho_L + rho_R)/2`` and
+    ``Mbar^2 = (M_L^2 + M_R^2)/2``.
 
-    That deficiency is not a defect of this implementation; it is the exact
-    deficiency AUSM+-up was written to cure, by adding the ``M_p`` term below.
+    The ``K_p`` term is the pressure-velocity coupling that plain AUSM+ lacks.
+    Without it the mass flux is identically zero whenever ``u_L = u_R = 0``,
+    however large the pressure jump, so AUSM+ alone cannot start a flow from
+    rest -- it cannot run Sod's problem at all.  The ``K_u`` term is the
+    corresponding velocity diffusion in the pressure.
 
-    What is **not** implemented here
-    --------------------------------
-    This is AUSM+ (1996), not AUSM+-up (Liou, J. Comput. Phys. 214:137, 2006).
-    AUSM+-up adds two low-Mach diffusion terms, ``M_p`` in the mass flux and
-    ``p_u`` in the pressure, scaled by a function ``f_a`` of a reference Mach
-    number, so that the dissipation stays proportional to the flow speed
-    rather than the sound speed as ``M -> 0``.
+    Provenance, and a warning about reconstructing this from memory
+    ---------------------------------------------------------------
+    The split polynomials ``M+-_(4)`` and ``P+-_(5)`` are standard and are
+    pinned by two exact identities, checked in the test suite:
 
-    Those terms are omitted deliberately.  Their coefficients could not be
-    checked against the 2006 paper from the environment this port was written
-    in (its network policy reaches GitHub and the package registries only), and
-    a reconstruction of ``p_u`` from memory proved to be anti-dissipative: on a
-    plain moving contact it amplified round-off by a factor of about 1.5 per
-    step, reaching a 50% pressure error, and the measured stability threshold
-    sat near ``K_u = 0.35`` against the published value of 0.75.  Shipping an
-    unverifiable term that is demonstrably unstable on a textbook problem
-    would be worse than shipping the well-established scheme it extends, so
-    what is here is plain AUSM+, whose split functions satisfy their exact
-    consistency identities and which preserves both stationary and moving
-    contacts to machine precision.
+        M+_(4)(M) + M-_(4)(M) = M,      P+_(5)(M) + P-_(5)(M) = 1,
 
-    For low-Mach work, add the ``-up`` terms from the 2006 paper (and, for
-    SLAU, Shima & Kitamura, AIAA J. 49:1693, 2011); the structure below is
-    arranged so that they slot into ``m_half`` and ``p_half``.
+    both independent of ``alpha`` and ``beta``.  Expanding the forms used here
+    reproduces, to machine precision, the closed polynomials written out in
+    EMS ``src/riemann_solvers/ausm6.cpp::M4P5``, e.g. for ``|M| < 1``
+
+        M+_(4) = M^4/8 + M/2 + 3/8,
+        P+_(5) = 3 M^5/16 - 5 M^3/8 + 15 M/16 + 1/2.
+
+    The ``-up`` terms are a different matter.  An earlier version of this file
+    reconstructed them without access to the 2006 paper and got them wrong in
+    three compounding ways: it used Liou's critical-speed construction for
+    ``a_1/2`` instead of the arithmetic mean, it carried an ``f_a`` all-speed
+    scaling that is absent here, and -- the fatal one -- it wrote the ``K_u``
+    term with ``K_u = 0.75`` against ``(rho_L + rho_R)`` rather than
+    ``K_u = 0.2`` against ``rho_1/2``, making that term **7.5 times too
+    large**.  The result was anti-dissipative: on a plain moving contact it
+    amplified round-off by about 1.5 per step until the pressure error reached
+    50%, with a measured stability threshold at roughly 0.35 in its own
+    parameterisation -- just below the 0.75 it was using, and far below the
+    1.5 it effectively applied.
+
+    The coefficients and the ``a_1/2`` definition here are taken from EMS,
+    where they are benchmarked.  The sign and structure of both terms agree
+    with what was reconstructed; only the scaling was wrong, which is exactly
+    the kind of error that identity tests cannot catch and a moving-contact
+    test can.  ``test_moving_contact_keeps_pressure_constant`` is that test.
     """
     rho_l, rho_r = u_l[0], u_r[0]
     vel_l, vel_r = u_l[1] / rho_l, u_r[1] / rho_r
     p_l, p_r = pressure(u_l, gamma), pressure(u_r, gamma)
-    h_l = (u_l[2] + p_l) / rho_l   # total enthalpy
-    h_r = (u_r[2] + p_r) / rho_r
+    a_l = np.sqrt(gamma * p_l / rho_l)
+    a_r = np.sqrt(gamma * p_r / rho_r)
 
-    # --- interface speed of sound (Liou's critical-speed construction) ---- #
-    # a* is the speed at which the flow would be sonic for the given total
-    # enthalpy.  Taking the minimum of the two one-sided values makes the
-    # interface sound speed respect an incoming shock from either side.
-    fac = 2.0 * (gamma - 1.0) / (gamma + 1.0)
-    a_star_l = np.sqrt(fac * h_l)
-    a_star_r = np.sqrt(fac * h_r)
-    a_hat_l = a_star_l * a_star_l / max(a_star_l, vel_l)
-    a_hat_r = a_star_r * a_star_r / max(a_star_r, -vel_r)
-    a_half = min(a_hat_l, a_hat_r)
+    # Interface averages: plain arithmetic means of the one-sided values.
+    a_half = 0.5 * (a_l + a_r)
+    rho_half = 0.5 * (rho_l + rho_r)
 
     mach_l = vel_l / a_half
     mach_r = vel_r / a_half
+    mbar_sq = 0.5 * (mach_l * mach_l + mach_r * mach_r)
 
-    # --- interface Mach number and pressure ------------------------------- #
-    m_half = _m4_plus(mach_l, _AUSM_BETA) + _m4_minus(mach_r, _AUSM_BETA)
+    # --- interface velocity, with the K_p pressure-diffusion term --------- #
+    # max(1 - Mbar^2, 0) switches the term off once the interface is
+    # supersonic, where the upwinding already supplies enough dissipation.
+    u_half = a_half * (
+        _m4_plus(mach_l, _AUSM_BETA) + _m4_minus(mach_r, _AUSM_BETA)
+    ) + _AUSM_KP * max(1.0 - mbar_sq, 0.0) * (p_l - p_r) / (rho_half * a_half)
+
+    # --- interface pressure, with the K_u velocity-diffusion term --------- #
+    p5p = _p5_plus(mach_l, _AUSM_ALPHA)
+    p5m = _p5_minus(mach_r, _AUSM_ALPHA)
     p_half = (
-        _p5_plus(mach_l, _AUSM_ALPHA) * p_l
-        + _p5_minus(mach_r, _AUSM_ALPHA) * p_r
+        p5p * p_l
+        + p5m * p_r
+        + _AUSM_KU * p5p * p5m * rho_half * a_half * (vel_l - vel_r)
     )
 
-    # --- assemble: upwind the convective vector on the sign of mdot ------- #
-    if m_half > 0.0:
-        mdot = a_half * m_half * rho_l
-        out[0] = mdot
-        out[1] = mdot * vel_l + p_half
-        out[2] = mdot * h_l
+    # --- assemble: upwind Psi = [rho, rho u, E + p] on the sign of u_1/2 -- #
+    if u_half > 0.0:
+        out[0] = u_half * rho_l
+        out[1] = u_half * u_l[1] + p_half
+        out[2] = u_half * (u_l[2] + p_l)
     else:
-        mdot = a_half * m_half * rho_r
-        out[0] = mdot
-        out[1] = mdot * vel_r + p_half
-        out[2] = mdot * h_r
+        out[0] = u_half * rho_r
+        out[1] = u_half * u_r[1] + p_half
+        out[2] = u_half * (u_r[2] + p_r)
 
 
 # --------------------------------------------------------------------------- #
@@ -561,8 +570,8 @@ def _first_order_flux(
         rusanov_flux(u_l, u_r, gamma, out)
     elif flux_code_ == FLUX_LF:
         lax_friedrichs_flux(u_l, u_r, gamma, dx, dt, out)
-    else:  # FLUX_AUSM
-        ausm_plus_flux(u_l, u_r, gamma, out)
+    else:  # FLUX_AUSMUP
+        ausm_up_flux(u_l, u_r, gamma, out)
 
 
 @njit

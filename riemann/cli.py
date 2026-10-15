@@ -39,7 +39,7 @@ def build_parser():
         "  roe              Roe with the Harten-Hyman entropy fix (Toro Ch. 11)\n"
         "  hllc             HLL with the contact restored (Toro Sec. 10.4)\n"
         "  hll / hlle       HLL, Einfeldt wave speeds (Toro Secs. 10.3, 10.5)\n"
-        "  ausm             AUSM+ (Liou 1996); cannot start a flow from rest\n"
+        "  ausmup           AUSM+-up (Liou 2006); alias ausm\n"
         "  rusanov / llf    local Lax-Friedrichs (Toro Sec. 10.5)\n"
         "  lax_friedrichs   classical Lax-Friedrichs (Toro Sec. 5.3.4)"
     ),
@@ -60,7 +60,7 @@ def build_parser():
         metavar="FLUX",
         help=(
             "numerical flux: roe, hll (alias hlle), hllc, rusanov, "
-            "lax_friedrichs (alias lf), ausm (default: roe)"
+            "lax_friedrichs (alias lf), ausmup (default: roe)"
         ),
     )
     parser.add_argument(

@@ -149,20 +149,11 @@ def _positivity_message(fcode, steps, t):
             "Toro Sec. 11.4).  Toro's Test 2 (the '123' problem) is the "
             "standard example, and fails even at first order."
         )
-    elif name == "ausm":
+    elif name in ("ausmup", "rusanov", "lax_friedrichs"):
         lines.append(
-            "AUSM+ has no pressure-velocity coupling in its mass flux, so it "
-            "cannot start a flow from rest: with u = 0 on both sides the "
-            "interface Mach number is exactly zero whatever the pressure "
-            "jump, and the internal energy goes negative immediately.  It "
-            "needs a local Mach number of roughly 0.1 to function.  See "
-            "riemann.fluxes.ausm_plus_flux."
-        )
-    elif name in ("rusanov", "lax_friedrichs"):
-        lines.append(
-            f"{name} is positivity-preserving as a first-order flux, but that "
-            "proof does not cover the second-order TVD correction, which is "
-            "the usual cause of a failure here.  Try second_order=False or "
+            f"The {name} flux runs every built-in problem at first order; "
+            "failures at second order come from the characteristic-based TVD "
+            "correction, not from the flux.  Try second_order=False or "
             "limiter='minmod'."
         )
     lines.append(
@@ -224,7 +215,7 @@ class RoeSolution:
         "hllc": "HLLC",
         "rusanov": "Rusanov",
         "lax_friedrichs": "Lax-Friedrichs",
-        "ausm": "AUSM+",
+        "ausmup": "AUSM+-up",
     }
 
     @property
