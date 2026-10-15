@@ -134,7 +134,7 @@ shocks respectively, and are resolved to under 1% with no special treatment.
 
 ---
 
-## 6. A documented failure: Toro's Test 2
+## 6. A documented failure: Toro's Test 2 (for the Roe flux)
 
 Test 2 — the "123 problem", $\rho = 1$, $u = \mp 2$, $p = 0.4$ — is **not**
 shown above because Roe's solver cannot run it:
@@ -144,9 +144,22 @@ $ python -m riemann toro2
 exact solution : p* = 0.0018938734, u* = 0 (1 Newton iterations)
 wave pattern   : left rarefaction, contact, right rarefaction
 
-Roe run FAILED:
-Roe scheme produced a non-physical state (negative pressure or density) at step 1 ...
+numerical run FAILED:
+flux='roe' produced a non-physical state (negative pressure or density) at step 1 ...
 ```
+
+**This is now fixable.** A positivity-preserving flux runs it:
+
+```console
+$ python -m riemann toro2 --flux hllc
+numerical run  : HLLC, 2nd order, superbee, nx = 200, CFL = 0.9
+  rho  L1 = 4.5816e-03   relative L1 = 4.5816e-03
+```
+
+![Toro Test 2 with HLLC and HLL](figures/toro2_positivity.png)
+
+See [flux-functions.md](flux-functions.md#6-robustness) for the full
+flux-versus-problem matrix.
 
 The exact solver handles it fine — in a single Newton iteration, because
 Toro's two-rarefaction initial guess is exact when both waves are
@@ -157,8 +170,30 @@ time-stepping: the Roe linearisation does not preserve positivity of internal
 energy near vacuum.
 
 See [roe-solver.md](roe-solver.md#5-known-limitation-roes-solver-is-not-positivity-preserving)
-for the full explanation and the reference. The remedy is an HLLE or HLLC
-flux, which is on the roadmap.
+for the full explanation and the reference.
+
+---
+
+## 6a. The numerical fluxes compared
+
+Six fluxes, the same problem, the same limiter, the same grid — only the
+first-order flux differs. The contact is where they separate; every one of
+them captures the shock in one or two cells.
+
+![Numerical fluxes at the contact discontinuity](figures/flux_comparison.png)
+
+| Flux | Contact width (100 cells) | $L_1$ error in $\rho$ (200 cells) |
+| --- | --- | --- |
+| Roe | 2 cells | $1.44 \times 10^{-3}$ |
+| HLLC | 3 cells | $2.10 \times 10^{-3}$ |
+| HLL | 8 cells | $4.04 \times 10^{-3}$ |
+| AUSM+ | cannot run (starts from rest) | — |
+| Rusanov | 19 cells | $1.28 \times 10^{-2}$ |
+| Lax-Friedrichs | 24 cells | $2.22 \times 10^{-2}$ |
+
+Full discussion, including why AUSM+ cannot start a flow from rest and why
+Lax-Friedrichs ignores the TVD correction entirely, is in
+[flux-functions.md](flux-functions.md).
 
 ---
 
@@ -189,7 +224,7 @@ without any tuning — here in 3 Newton iterations.
 pytest
 ```
 
-61 tests covering, among others:
+140 tests covering, among others:
 
 - star-region values against Toro's Table 4.1 for all five of his test
   problems;
@@ -204,7 +239,14 @@ pytest
 - a uniform state being a fixed point of the scheme;
 - the solution landing exactly on the requested output time;
 - the entropy glitch failing to converge when the fix is disabled;
-- Toro Test 2 failing with the documented message.
+- Toro Test 2 failing for Roe with the documented message, and succeeding
+  for HLLC and HLL;
+- consistency, `F(U, U) = F(U)`, for every flux over a spread of states;
+- the two exact AUSM+ split-function identities;
+- exact contact preservation (stationary and moving) for Roe, HLLC and AUSM+,
+  and its absence for HLL, Rusanov and Lax-Friedrichs;
+- the measured accuracy ordering Roe < HLLC < HLL < Rusanov < Lax-Friedrichs;
+- Lax-Friedrichs odd-even decoupling nullifying the limiter.
 
 The suite passes identically with and without Numba
 (`NUMBA_DISABLE_JIT=1 pytest`), which verifies the pure-Python fallback path.

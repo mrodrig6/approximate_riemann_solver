@@ -61,10 +61,11 @@ class RiemannProblem:
         Domain and the initial discontinuity position.
     reference : str
         Where the case comes from, so a reader can look it up in Toro.
-    roe_note : str
-        Non-empty if the Roe scheme is *expected* to struggle (or fail) on this
-        case.  Used by the CLI and the test suite so that a known, documented
-        limitation of the method is not mistaken for a broken port.
+    flux_note : str
+        Non-empty if some flux is *expected* to struggle (or fail) on this
+        case, so that a known, documented limitation of a method is not
+        mistaken for a broken implementation.  The CLI prints it only when the
+        selected flux is not one of :data:`riemann.fluxes.ROBUST_FLUXES`.
     """
 
     name: str
@@ -77,7 +78,7 @@ class RiemannProblem:
     x_right: float = 1.0
     x_diaphragm: float = 0.5
     reference: str = ""
-    roe_note: str = ""
+    flux_note: str = ""
 
     @property
     def left(self):
@@ -114,6 +115,12 @@ PROBLEMS = {
             gamma=1.4,
             t_end=0.25,
             reference="Toro Test 1, Sec. 4.3.3 / Table 4.1",
+            flux_note=(
+                "Starts from rest, so the AUSM+ flux (--flux ausm) cannot run "
+                "it: with u = 0 on both sides its mass flux is identically "
+                "zero whatever the pressure jump.  That is the deficiency "
+                "AUSM+-up was written to cure; see riemann.fluxes."
+            ),
         ),
         RiemannProblem(
             name="toro2",
@@ -123,15 +130,15 @@ PROBLEMS = {
             gamma=1.4,
             t_end=0.15,
             reference="Toro Test 2, Sec. 4.3.3",
-            roe_note=(
+            flux_note=(
                 "Roe's scheme FAILS on this problem, at first and second order "
                 "alike: the star region is so close to vacuum that the "
                 "linearised solver drives the internal energy negative in the "
                 "first time step.  This is a documented property of the method, "
                 "not a defect of this implementation (Einfeldt, Munz, Roe & "
-                "Sjoegreen 1991; Toro Sec. 11.4).  A positivity-preserving flux "
-                "such as HLLE or HLLC is required -- see the roadmap in the "
-                "README."
+                "Sjoegreen 1991; Toro Sec. 11.4).  Use a positivity-preserving "
+                "flux instead: --flux hllc (recommended), hll, rusanov or "
+                "lax_friedrichs all run it."
             ),
         ),
         RiemannProblem(
@@ -160,11 +167,13 @@ PROBLEMS = {
             gamma=1.4,
             t_end=0.012,
             reference="Toro Test 5, Sec. 4.3.3",
-            roe_note=(
+            flux_note=(
                 "Sensitive to the time step: because the second-order "
                 "correction scales as 1 - |nu|, an artificially small CFL "
                 "number removes the scheme's dissipation and breaks positivity "
-                "here.  Run it at CFL ~ 0.9."
+                "here.  Run it at CFL ~ 0.9.  The Rusanov flux also fails here "
+                "at second order (its positivity proof covers the first-order "
+                "flux, not the TVD correction); HLLC and HLL are fine."
             ),
         ),
         RiemannProblem(

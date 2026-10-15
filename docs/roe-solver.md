@@ -190,10 +190,16 @@ time-stepping or the reconstruction. This is a documented result — Einfeldt,
 Munz, Roe & Sjögreen, *On Godunov-type methods near low densities*,
 J. Comput. Phys. **92**:273 (1991); see also Toro §11.4.
 
-The cure is a positivity-preserving flux: **HLLE** or **HLLC** (Toro
-Chapter 10), which are on the roadmap in the README. The test suite pins the
-current behaviour in `test_toro2_fails_as_documented`, so that whoever adds
-HLLC gets a reminder to revisit it.
+The cure is a positivity-preserving flux: **HLL** (with Einfeldt wave speeds,
+i.e. HLLE) or **HLLC**, Toro Chapter 10. Both are implemented — see
+[flux-functions.md](flux-functions.md) — and both run this problem:
+
+```bash
+python -m riemann toro2 --flux hllc
+```
+
+The test suite pins both halves of this: `test_toro2_fails_as_documented` for
+the Roe flux, and `test_hllc_solves_the_problem_roe_cannot` for the remedy.
 
 ---
 
@@ -219,4 +225,5 @@ one further upwind.
 
 ---
 
-**Next:** [The second-order TVD extension](tvd-extension.md)
+**Next:** [Numerical flux functions](flux-functions.md) ·
+[The second-order TVD extension](tvd-extension.md)

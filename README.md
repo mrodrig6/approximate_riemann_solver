@@ -21,17 +21,19 @@ chapter and equation number it comes from.
   $p_{*}$ with Toro's adaptive initial guess, then closed-form self-similar
   sampling of the wave fan. Reproduces Toro's Table 4.1 to all published
   digits.
-- **Roe's approximate Riemann solver** with the **Harten–Hyman entropy fix**
-  for transonic rarefactions.
+- **Six numerical fluxes**, interchangeable via one argument: **Roe** (with
+  the **Harten–Hyman entropy fix**), **HLLC**, **HLL/HLLE**, **AUSM+**,
+  **Rusanov** and **Lax–Friedrichs**.
 - **Second-order TVD extension** with a choice of flux limiters — superbee,
   minmod, van Leer, van Albada — applied wave by wave.
 - **Toro's five standard test problems** built in, plus a transonic case and a
   dimensional (SI) air shock tube.
 - **Numba acceleration**, roughly 100× over pure Python, with a transparent
   fallback when Numba is not installed.
-- **61 tests** checking the solvers against Toro's published values and
-  against their own defining identities (the Roe U-property, Sweby's TVD
-  region, exact conservation).
+- **140 tests** checking the solvers against Toro's published values and
+  against their own defining identities (the Roe U-property, the AUSM+ split
+  identities, Sweby's TVD region, exact contact preservation, exact
+  conservation).
 
 ---
 
@@ -100,20 +102,23 @@ t_end   = 0.25
 
 exact = solve_exact(gamma, w_left, w_right, t_end, n=2000)
 roe   = solve_roe(gamma, w_left, w_right, t_end, nx=200, limiter="superbee")
+hllc  = solve_roe(gamma, w_left, w_right, t_end, nx=200, flux="hllc")
 
 print(f"p* = {exact.p_star:.6f}, u* = {exact.u_star:.6f}")
 
-fig, _ = plot_comparison(exact=exact, numerical=[roe], title="Sod's shock tube")
+fig, _ = plot_comparison(exact=exact, numerical=[roe, hllc], title="Sod's shock tube")
 save_figure(fig, "sod.png")
 ```
 
 ### More to try
 
 ```bash
-python -m riemann --help               # all options and all built-in problems
-python -m riemann toro4 --nx 400       # two colliding strong shocks
-python -m riemann sod --first-order    # drop the TVD correction, see the difference
-python -m riemann sod --limiter minmod # a more diffusive limiter
+python -m riemann --help                # all options, problems and fluxes
+python -m riemann sod --flux hllc       # a different numerical flux
+python -m riemann toro2 --flux hllc     # the near-vacuum case Roe cannot run
+python -m riemann toro4 --nx 400        # two colliding strong shocks
+python -m riemann sod --first-order     # drop the TVD correction, see the difference
+python -m riemann sod --limiter minmod  # a more diffusive limiter
 python -m riemann air_shock_tube --dimensional --plot air.png
 ```
 
@@ -121,6 +126,7 @@ Three worked examples, each runnable directly:
 
 ```bash
 python examples/sod_shock_tube.py          # the basics (replaces main.m)
+python examples/compare_fluxes.py          # all six fluxes side by side
 python examples/compare_limiters.py        # first vs second order, four limiters
 python examples/dimensional_shock_tube.py  # SI units (replaces test_input2o1.m)
 ```
@@ -143,6 +149,7 @@ in **[`docs/`](docs/index.md)**:
 | --- | --- |
 | [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{*}) = 0$, sampling, vacuum |
 | [Roe's approximate Riemann solver](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
+| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 1996: HLL, HLLC, AUSM+, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
 | [Second-order accuracy and TVD flux limiters](docs/tvd-extension.md) | Toro Ch. 13–14: Godunov's theorem, flux limiting, Sweby's region |
 | [Validation and results](docs/validation.md) | All figures and the numbers behind them |
 | [Porting notes: MATLAB to Python](docs/porting-notes.md) | File mapping and every bug fixed in the port |
@@ -171,6 +178,31 @@ below. The solver reports it with an explanation rather than a bare crash.
 ---
 
 ## Results at a glance
+
+### The fluxes
+
+Sod's problem, 100 cells, identical grid and limiter — only the first-order
+flux differs. The contact is what separates them; all of them capture the
+shock in one or two cells.
+
+![Numerical fluxes at the contact discontinuity](docs/figures/flux_comparison.png)
+
+| Flux | Contact width | $L_1$ error in $\rho$ (200 cells) | µs / cell / step |
+| --- | --- | --- | --- |
+| Roe | 2 cells | $1.44 \times 10^{-3}$ | 0.51 |
+| HLLC | 3 cells | $2.10 \times 10^{-3}$ | 0.33 |
+| HLL | 8 cells | $4.04 \times 10^{-3}$ | 0.36 |
+| AUSM+ | cannot start from rest | — | 0.27 |
+| Rusanov | 19 cells | $1.28 \times 10^{-2}$ | 0.36 |
+| Lax–Friedrichs | 24 cells | $2.22 \times 10^{-2}$ | 0.36 |
+
+**HLLC is the best general-purpose choice**: contacts nearly as sharp as Roe,
+cheaper, no entropy fix needed, and it runs every built-in problem — including
+`toro2`, the near-vacuum case where Roe fails outright.
+
+![Toro Test 2 with HLLC and HLL](docs/figures/toro2_positivity.png)
+
+### The limiters
 
 Sod's problem at 100 cells, measuring how many cells the contact is smeared
 over. All three use the identical Roe flux and differ only in the limiter:
@@ -218,7 +250,8 @@ paid once per machine rather than once per process.
 riemann/              the Python package
   thermo.py             equation of state, variable conversions, Euler flux
   exact.py              exact Riemann solver
-  roe.py                Roe flux, entropy fix, limiter term
+  roe.py                Roe average, eigenstructure, Roe flux, entropy fix
+  fluxes.py             HLL, HLLC, AUSM+, Rusanov, Lax-Friedrichs; TVD term
   limiters.py           superbee, minmod, van Leer, van Albada
   solver.py             finite-volume driver, CFL, boundary conditions
   problems.py           Toro's test problems
@@ -226,9 +259,9 @@ riemann/              the Python package
   cli.py                python -m riemann
   _jit.py               optional-Numba shim
 docs/                 formulation, validation, porting notes, figures
-examples/             three runnable examples
+examples/             four runnable examples
 scripts/              figure generation and benchmarking
-tests/                61 pytest tests
+tests/                140 pytest tests
 matlab_legacy/        the original MATLAB implementation, archived
 ```
 
@@ -236,12 +269,19 @@ matlab_legacy/        the original MATLAB implementation, archived
 
 ## Roadmap
 
-- HLL, HLLC and HLLE approximate Riemann solvers (Toro Ch. 10). HLLC would
-  also make `toro2` runnable, since it is positivity-preserving.
+- **AUSM+-up** (Liou 2006) and **SLAU** (Shima & Kitamura 2011). Both were
+  attempted and deliberately left out: the environment this work was done in
+  could not reach the papers, and a reconstruction of AUSM+-up's `p_u` term
+  from memory proved unstable on a moving contact. `riemann/fluxes.py` is
+  arranged so the missing terms slot straight in, and the test that caught
+  the bad reconstruction is already in the suite. See
+  [the write-up](docs/flux-functions.md#what-is-not-implemented-ausm-up-and-slau).
 - MUSCL-Hancock reconstruction (Toro Ch. 14) as an alternative route to second
   order.
 - Extension to two dimensions by dimensional splitting (Toro Ch. 16).
 - Stiffened-gas and Mie–Grüneisen equations of state.
+
+Done: HLL, HLLE, HLLC, Rusanov and Lax–Friedrichs (this release).
 
 ---
 

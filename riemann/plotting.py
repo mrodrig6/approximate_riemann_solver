@@ -40,20 +40,30 @@ __all__ = [
     "save_figure",
 ]
 
-#: Categorical colours, slots assigned in fixed order and never cycled.
-#: These are validated for colour-vision deficiency separation; the reference
+#: Categorical colours, slots assigned in fixed order and never cycled.  The
+#: six are validated for colour-vision-deficiency separation as an adjacent
+#: pair list; three of them fall below a 3:1 contrast ratio on this surface,
+#: which is why every figure using them also carries a legend and distinct
+#: marker shapes rather than relying on colour alone.  The reference
 #: ("exact") curve deliberately uses neutral ink rather than a series colour,
 #: since it is the baseline every series is read against, not one of them.
 PALETTE = {
     "exact": "#3f3f3c",
-    "series": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"],
+    "series": [
+        "#2a78d6",  # blue
+        "#eb6834",  # orange
+        "#1baf7a",  # aqua
+        "#eda100",  # yellow
+        "#e87ba4",  # magenta
+        "#6250d6",  # violet
+    ],
     "grid": "#d8d7d2",
     "text": "#0b0b0b",
 }
 
 #: Marker cycle, used as a *secondary* encoding so the series are
 #: distinguishable without relying on colour alone.
-MARKERS = ["o", "s", "^", "D"]
+MARKERS = ["o", "s", "^", "D", "v", "P"]
 
 #: Axis labels, one per field.  Mathtext only -- see the module docstring.
 _LABELS = {

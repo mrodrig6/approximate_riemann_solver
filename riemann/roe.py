@@ -8,8 +8,10 @@ References (Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*,
   the eigenstructure and the wave strengths.
 * Chapter 11, Sec. 11.3 (Harten-Hyman): the entropy fix for a transonic
   rarefaction.
-* Chapter 13, Sec. 13.8 and Chapter 14, Sec. 14.4: the flux-limited
-  second-order TVD extension.
+The flux-limited second-order extension and the dispatch over the other
+flux functions live in :mod:`riemann.fluxes`; this module supplies the Roe
+eigenstructure that both the Roe flux and that limiter correction are built
+from.
 
 The idea
 --------
@@ -67,10 +69,9 @@ from __future__ import annotations
 import numpy as np
 
 from ._jit import njit
-from .limiters import limiter_phi
 from .thermo import euler_flux, pressure
 
-__all__ = ["roe_average", "interface_eigensystem", "roe_fluxes"]
+__all__ = ["roe_average", "interface_eigensystem", "roe_flux"]
 
 
 @njit
@@ -259,90 +260,39 @@ def _negative_wave_speeds(u_l, u_r, gamma, lam, kmat, alpha, use_entropy_fix, la
 
 
 @njit
-def roe_fluxes(u_all, gamma, dx, dt, limiter_code_, use_entropy_fix, second_order):
-    """Interface fluxes for the whole (ghosted) grid.
+def roe_flux(u_l, u_r, gamma, lam, kmat, alpha, use_entropy_fix, out):
+    """First-order Roe flux at one interface, written into ``out``.
+
+    Implements Toro eq. (11.27),
+
+        F = F(U_L) + sum_k min(lambda_k, 0) alpha_k K_k,
+
+    with ``min(lambda_k, 0)`` replaced by the Harten-Hyman speeds at a
+    transonic rarefaction when ``use_entropy_fix`` is set.
 
     Parameters
     ----------
-    u_all : ndarray, shape (n_cells, 3)
-        Conservative states including two ghost cells at each end.
+    u_l, u_r : ndarray, shape (3,)
+        Conservative states either side of the interface.
     gamma : float
         Ratio of specific heats.
-    dx, dt : float
-        Mesh spacing and the time step actually being taken.  ``dt`` enters the
-        second-order correction through the Courant numbers ``nu_k``, so the
-        flux is *not* a function of the states alone.
-    limiter_code_ : int
-        Integer limiter code, see :mod:`riemann.limiters`.
+    lam, kmat, alpha : ndarray
+        The interface's Roe eigenvalues ``(3,)``, right eigenvectors
+        ``(3, 3)`` and wave strengths ``(3,)``, as filled by
+        :func:`interface_eigensystem`.  They are passed in rather than
+        recomputed because the caller already needs them for the flux limiter.
     use_entropy_fix : bool
-        Apply the Harten-Hyman fix at transonic rarefactions.
-    second_order : bool
-        Add the flux-limited second-order correction (Toro eq. 14.49).
-
-    Returns
-    -------
-    flux : ndarray, shape (n_cells - 1, 3)
-        Fluxes at every interface.  Entries at ``j = 0`` and at the last
-        interface are left at zero: they cannot be formed (the limiter needs an
-        upwind neighbour interface) and are never used, because only interior
-        cells are updated.
+        Apply the Harten-Hyman entropy fix.
+    out : ndarray, shape (3,)
+        Output buffer, overwritten.
     """
-    n_cells = u_all.shape[0]
-    n_if = n_cells - 1
-
-    lam_all = np.empty((n_if, 3))
-    k_all = np.empty((n_if, 3, 3))
-    alpha_all = np.empty((n_if, 3))
-    interface_eigensystem(u_all, gamma, lam_all, k_all, alpha_all)
-
-    flux = np.zeros((n_if, 3))
     lam_neg = np.empty(3)
+    _negative_wave_speeds(u_l, u_r, gamma, lam, kmat, alpha, use_entropy_fix, lam_neg)
 
-    for j in range(1, n_if - 1):
-        u_l = u_all[j]
-        u_r = u_all[j + 1]
-        lam = lam_all[j]
-        alpha = alpha_all[j]
-
-        kmat = k_all[j]
-        _negative_wave_speeds(
-            u_l, u_r, gamma, lam, kmat, alpha, use_entropy_fix, lam_neg
-        )
-
-        # ---- first-order upwind (Roe) flux, Toro eq. (11.27) ------------- #
-        f = euler_flux(u_l, gamma)
-        for k in range(3):
-            w = lam_neg[k] * alpha[k]
-            for m in range(3):
-                f[m] += w * kmat[k, m]
-
-        # ---- second-order TVD correction, Toro eq. (14.49) --------------- #
-        if second_order:
-            for k in range(3):
-                nu = lam[k] * dt / dx
-                # The correction weight vanishes identically when nu == 0, so
-                # there is nothing to do (and no upwind direction to pick).
-                if nu == 0.0:
-                    continue
-                sgn = 1.0 if nu > 0.0 else -1.0
-                # Upwind neighbour interface for this wave family.
-                j_up = j - 1 if nu > 0.0 else j + 1
-                num = alpha_all[j_up, k]
-                den = alpha[k]
-                # Guard the ratio: where the local wave is absent (uniform
-                # region, or a wave family that carries no jump) the whole
-                # correction is proportional to den and vanishes anyway, so
-                # falling back to r = 0 (phi = 0) is both safe and harmless.
-                if den != 0.0 and abs(den) > 1.0e-12 * abs(num):
-                    r = num / den
-                else:
-                    r = 0.0
-                phi = limiter_phi(r, limiter_code_)
-                w = 0.5 * lam[k] * (sgn - nu) * alpha[k] * phi
-                for m in range(3):
-                    f[m] += w * kmat[k, m]
-
+    f = euler_flux(u_l, gamma)
+    for k in range(3):
+        w = lam_neg[k] * alpha[k]
         for m in range(3):
-            flux[j, m] = f[m]
-
-    return flux
+            f[m] += w * kmat[k, m]
+    for m in range(3):
+        out[m] = f[m]

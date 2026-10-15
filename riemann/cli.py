@@ -17,6 +17,7 @@ import numpy as np
 from . import __version__
 from ._jit import HAVE_NUMBA, numba_version
 from .exact import solve_exact
+from .fluxes import FLUX_NAMES, ROBUST_FLUXES, flux_code
 from .limiters import LIMITERS
 from .problems import get_problem, list_problems
 from .solver import solve_roe
@@ -31,8 +32,17 @@ def build_parser():
             "equations."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="Built-in problems:\n"
-        + "\n".join(f"  {name:<18} {desc}" for name, desc in list_problems()),
+        epilog=(
+        "Built-in problems:\n"
+        + "\n".join(f"  {name:<18} {desc}" for name, desc in list_problems())
+        + "\n\nFluxes (--flux), roughly most to least accurate:\n"
+        "  roe              Roe with the Harten-Hyman entropy fix (Toro Ch. 11)\n"
+        "  hllc             HLL with the contact restored (Toro Sec. 10.4)\n"
+        "  hll / hlle       HLL, Einfeldt wave speeds (Toro Secs. 10.3, 10.5)\n"
+        "  ausm             AUSM+ (Liou 1996); cannot start a flow from rest\n"
+        "  rusanov / llf    local Lax-Friedrichs (Toro Sec. 10.5)\n"
+        "  lax_friedrichs   classical Lax-Friedrichs (Toro Sec. 5.3.4)"
+    ),
     )
     parser.add_argument(
         "problem",
@@ -43,6 +53,15 @@ def build_parser():
     parser.add_argument("--nx", type=int, default=200, help="number of cells (default: 200)")
     parser.add_argument(
         "--cfl", type=float, default=0.9, help="Courant number in (0, 1] (default: 0.9)"
+    )
+    parser.add_argument(
+        "--flux",
+        default="roe",
+        metavar="FLUX",
+        help=(
+            "numerical flux: roe, hll (alias hlle), hllc, rusanov, "
+            "lax_friedrichs (alias lf), ausm (default: roe)"
+        ),
     )
     parser.add_argument(
         "--limiter",
@@ -95,6 +114,16 @@ def main(argv=None):
         print(exc, file=sys.stderr)
         return 2
 
+    # Validate the flux here rather than with argparse `choices`: the registry
+    # keys are normalised (no spaces, underscores or hyphens), so a choices
+    # list built from them would reject the readable spelling
+    # "lax_friedrichs" that the help text and the docs use.
+    try:
+        flux_code(args.flux)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
     t_end = args.t_end if args.t_end is not None else problem.t_end
 
     backend = f"numba {numba_version}" if HAVE_NUMBA else "pure Python (numba not installed)"
@@ -121,9 +150,6 @@ def main(argv=None):
     )
     print(f"wave pattern   : left {exact.left_wave}, contact, right {exact.right_wave}")
 
-    if problem.roe_note:
-        print(f"\nnote           : {problem.roe_note}")
-
     try:
         roe = solve_roe(
             problem.gamma,
@@ -135,6 +161,7 @@ def main(argv=None):
             nx=args.nx,
             x_diaphragm=problem.x_diaphragm,
             cfl=args.cfl,
+            flux=args.flux,
             limiter=args.limiter,
             second_order=not args.first_order,
             entropy_fix=not args.no_entropy_fix,
@@ -142,9 +169,18 @@ def main(argv=None):
     except FloatingPointError as exc:
         # A documented breakdown of the method (see `roe_note`) should report
         # itself clearly rather than looking like a crash in the port.
-        print(f"\nRoe run FAILED:\n{exc}", file=sys.stderr)
+        # A documented breakdown of the method should report itself clearly
+        # rather than looking like a bug.  The problem's own note is printed
+        # here, where it is always relevant, rather than before every run.
+        print(f"\nnumerical run FAILED:\n{exc}", file=sys.stderr)
+        if problem.flux_note:
+            print(f"\nnote on this problem:\n{problem.flux_note}", file=sys.stderr)
+        if flux_code(args.flux) not in ROBUST_FLUXES:
+            robust = ", ".join(sorted(FLUX_NAMES[c] for c in ROBUST_FLUXES))
+            print(f"\nfluxes that run every built-in problem: {robust}",
+                  file=sys.stderr)
         return 1
-    print(f"\nRoe run        : {roe.label}, nx = {args.nx}, CFL = {roe.cfl}")
+    print(f"\nnumerical run  : {roe.label}, nx = {args.nx}, CFL = {roe.cfl}")
     print(f"                 {roe.steps} steps to t = {roe.t:g}")
 
     # Error against the exact solution, sampled on the *numerical* grid so the

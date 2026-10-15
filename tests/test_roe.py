@@ -194,7 +194,7 @@ def test_toro2_fails_as_documented():
     to revisit it.
     """
     prob = get_problem("toro2")
-    assert prob.roe_note, "toro2 must carry an explanatory note"
+    assert prob.flux_note, "toro2 must carry an explanatory note"
     with pytest.raises(FloatingPointError, match="non-physical state"):
         solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
 

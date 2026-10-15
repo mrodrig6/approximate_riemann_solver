@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 from riemann import get_problem, solve_exact, solve_roe  # noqa: E402
 from riemann.plotting import (  # noqa: E402
+    MARKERS,
     PALETTE,
     plot_comparison,
     plot_series,
@@ -270,6 +271,129 @@ def figure_air_shock_tube():
     return save_figure(fig, os.path.join(FIG_DIR, "air_shock_tube.png"))
 
 
+def figure_flux_comparison():
+    """Small multiples: every flux against the exact solution on Sod's problem.
+
+    Small multiples rather than six series on one axis: with six schemes the
+    single-panel version becomes a colour-matching exercise, while one panel
+    per flux lets each be read on its own and compared by shape.  The view is
+    zoomed on the contact, which is where the fluxes actually differ -- all of
+    them capture the shock in one or two cells.
+
+    AUSM+ cannot run Sod (it has no pressure-velocity coupling in the mass
+    flux, so it cannot start a flow from rest); its panel says so rather than
+    being silently dropped.
+    """
+    prob = get_problem("sod")
+    nx = 100
+    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=2000)
+
+    names = ["roe", "hllc", "hll", "ausm", "rusanov", "lax_friedrichs"]
+    pretty = {
+        "roe": "Roe", "hllc": "HLLC", "hll": "HLL", "ausm": "AUSM+",
+        "rusanov": "Rusanov", "lax_friedrichs": "Lax-Friedrichs",
+    }
+
+    use_paper_style()
+    fig, axes = plt.subplots(2, 3, figsize=(10.0, 5.6), sharex=True, sharey=True)
+    axes = axes.ravel()
+
+    for idx, (ax, name) in enumerate(zip(axes, names)):
+        ax.plot(exact.x, exact.rho, color=PALETTE["exact"], lw=2.0, zorder=2,
+                label="Exact")
+        try:
+            sol = solve_roe(
+                prob.gamma, prob.left, prob.right, prob.t_end, nx=nx,
+                flux=name, limiter="superbee",
+            )
+            ax.plot(
+                sol.x, sol.rho, ls="none", marker=MARKERS[idx % len(MARKERS)],
+                ms=4.5, markerfacecolor="none", markeredgewidth=1.1,
+                color=PALETTE["series"][idx % len(PALETTE["series"])], zorder=3,
+            )
+            # Contact width, in cells, as a direct label -- the number the
+            # panel is really about.
+            lo, hi = 0.2656, 0.4263
+            span = hi - lo
+            width = int(np.sum((sol.rho > lo + 0.05 * span)
+                               & (sol.rho < hi - 0.05 * span)))
+            note = f"contact: {width} cells"
+        except FloatingPointError:
+            note = "cannot start\nfrom rest"
+        ax.set_title(pretty[name], loc="left", color="#52514e")
+        ax.annotate(
+            note, xy=(0.04, 0.08), xycoords="axes fraction", fontsize=8.5,
+            color="#52514e",
+        )
+        ax.set_xlim(0.6, 0.85)
+        ax.set_ylim(0.22, 0.47)
+
+    for ax in axes[3:]:
+        ax.set_xlabel("$x$")
+    for ax in (axes[0], axes[3]):
+        ax.set_ylabel(r"$\rho$")
+
+    fig.suptitle(
+        "Numerical fluxes at the contact discontinuity (Sod, 100 cells)",
+        fontsize=12,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return save_figure(fig, os.path.join(FIG_DIR, "flux_comparison.png"))
+
+
+def figure_toro2_positivity():
+    """Toro's Test 2, the near-vacuum case that Roe cannot run.
+
+    The point of adding positivity-preserving fluxes, in one figure: the exact
+    solution has a star region at p* = 0.0019, and HLLC and HLL both resolve
+    it, while the Roe flux drives the internal energy negative in the first
+    time step and the run stops.
+    """
+    prob = get_problem("toro2")
+    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=2000)
+
+    use_paper_style()
+    fig, axes = plt.subplots(1, 3, figsize=(10.0, 3.6))
+    fields = ("rho", "u", "e")
+    labels = {"rho": r"$\rho$", "u": "$u$", "e": "$e$"}
+    titles = {"rho": "Density", "u": "Velocity",
+              "e": "Specific internal energy"}
+
+    runs = []
+    for idx, name in enumerate(("hllc", "hll")):
+        runs.append((
+            solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+                      flux=name, limiter="superbee"),
+            name.upper(),
+            idx,
+        ))
+
+    for ax, field in zip(axes, fields):
+        ax.plot(exact.x, getattr(exact, field), color=PALETTE["exact"], lw=2.0,
+                label="Exact", zorder=2)
+        for sol, label, idx in runs:
+            ax.plot(
+                sol.x, getattr(sol, field), ls="none", marker=MARKERS[idx],
+                ms=4.0, markerfacecolor="none", markeredgewidth=1.1,
+                color=PALETTE["series"][idx], label=label, zorder=3 + idx,
+            )
+        ax.set_ylabel(labels[field])
+        ax.set_xlabel("$x$")
+        ax.set_title(titles[field], loc="left", color="#52514e")
+        ax.margins(y=0.1)
+
+    handles, lbls = axes[0].get_legend_handles_labels()
+    fig.legend(handles, lbls, loc="lower center", ncol=3,
+               bbox_to_anchor=(0.5, -0.04))
+    fig.suptitle(
+        "Toro Test 2 ($p_* \\approx 0.0019$): Roe fails outright; "
+        "HLLC and HLL do not",
+        fontsize=12,
+    )
+    fig.tight_layout(rect=(0, 0.04, 1, 0.94))
+    return save_figure(fig, os.path.join(FIG_DIR, "toro2_positivity.png"))
+
+
 FIGURES = [
     figure_sod,
     figure_order_and_limiters,
@@ -277,6 +401,8 @@ FIGURES = [
     figure_toro_suite,
     figure_convergence,
     figure_air_shock_tube,
+    figure_flux_comparison,
+    figure_toro2_positivity,
 ]
 
 

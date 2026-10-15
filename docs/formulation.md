@@ -241,4 +241,5 @@ precisely where Roe's approximate solver needs an entropy fix — see
 
 ---
 
-**Next:** [Roe's approximate Riemann solver](roe-solver.md)
+**Next:** [Roe's approximate Riemann solver](roe-solver.md) ·
+[Numerical flux functions](flux-functions.md)

@@ -9,7 +9,8 @@ The scheme is the conservative one-step update (Toro Sec. 6.2)
 
     U_i^{n+1} = U_i^n - (dt / dx) [ F_{i+1/2} - F_{i-1/2} ],
 
-with ``F`` supplied by :func:`riemann.roe.roe_fluxes`.
+with ``F`` supplied by :func:`riemann.fluxes.interface_fluxes`, which
+selects among the available numerical fluxes.
 
 Bugs fixed relative to the MATLAB original (``plot_roe_eue.m``)
 --------------------------------------------------------------
@@ -47,8 +48,8 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ._jit import njit
+from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
 from .limiters import LIMITER_NAMES, limiter_code
-from .roe import roe_fluxes
 from .thermo import (
     conservative_to_primitive,
     primitive_to_conservative,
@@ -103,14 +104,18 @@ def _max_signal_speed(u_all, gamma, n_ghost):
 
 
 @njit
-def _advance(u_all, gamma, dx, dt, n_ghost, limiter_code_, use_entropy_fix, second_order):
+def _advance(
+    u_all, gamma, dx, dt, n_ghost, flux_code_, limiter_code_, use_entropy_fix,
+    second_order,
+):
     """One conservative time step (Toro Sec. 6.2, the Godunov update), in place.
 
     Returns the new state array; the interior cells are updated from the
     interface fluxes and the ghost cells are refreshed afterwards.
     """
-    flux = roe_fluxes(
-        u_all, gamma, dx, dt, limiter_code_, use_entropy_fix, second_order
+    flux = interface_fluxes(
+        u_all, gamma, dx, dt, flux_code_, limiter_code_, use_entropy_fix,
+        second_order,
     )
     n_cells = u_all.shape[0]
     u_new = u_all.copy()
@@ -122,6 +127,53 @@ def _advance(u_all, gamma, dx, dt, n_ghost, limiter_code_, use_entropy_fix, seco
             u_new[i, m] = u_all[i, m] - lam * (flux[i, m] - flux[i - 1, m])
     _apply_transmissive_bc(u_new, n_ghost)
     return u_new
+
+
+def _positivity_message(fcode, steps, t):
+    """Explain a positivity failure in terms of the flux that produced it.
+
+    Which fluxes can fail, and why, differs enough between them that one
+    generic message would be useless.  Keeping this out of the hot path means
+    it costs nothing until something actually goes wrong.
+    """
+    name = FLUX_NAMES[fcode]
+    lines = [
+        f"flux={name!r} produced a non-physical state (negative pressure or "
+        f"density) at step {steps}, t = {t:.6g}.",
+    ]
+    if name == "roe":
+        lines.append(
+            "Roe's linearisation does not preserve positivity of internal "
+            "energy: near a vacuum star state it is known to fail outright "
+            "(Einfeldt, Munz, Roe & Sjoegreen, J. Comput. Phys. 92:273, 1991; "
+            "Toro Sec. 11.4).  Toro's Test 2 (the '123' problem) is the "
+            "standard example, and fails even at first order."
+        )
+    elif name == "ausm":
+        lines.append(
+            "AUSM+ has no pressure-velocity coupling in its mass flux, so it "
+            "cannot start a flow from rest: with u = 0 on both sides the "
+            "interface Mach number is exactly zero whatever the pressure "
+            "jump, and the internal energy goes negative immediately.  It "
+            "needs a local Mach number of roughly 0.1 to function.  See "
+            "riemann.fluxes.ausm_plus_flux."
+        )
+    elif name in ("rusanov", "lax_friedrichs"):
+        lines.append(
+            f"{name} is positivity-preserving as a first-order flux, but that "
+            "proof does not cover the second-order TVD correction, which is "
+            "the usual cause of a failure here.  Try second_order=False or "
+            "limiter='minmod'."
+        )
+    lines.append(
+        "Remedy: use a more robust flux -- flux='hllc' (recommended) or "
+        "'hll' run every built-in problem.  Failing that, a more diffusive "
+        "limiter (minmod) or second_order=False may help.  Note that "
+        "*lowering* the CFL number is not a remedy: the second-order "
+        "correction scales as 1 - |nu|, so a smaller step removes "
+        "dissipation rather than adding it."
+    )
+    return "\n".join(lines)
 
 
 @dataclass
@@ -140,6 +192,8 @@ class RoeSolution:
         Number of time steps taken.
     gamma, cfl, dx : float
         Run parameters, kept for reproducibility and for the plot labels.
+    flux : str
+        Name of the numerical flux used.
     limiter : str
         Name of the flux limiter used.
     second_order, entropy_fix : bool
@@ -156,18 +210,30 @@ class RoeSolution:
     gamma: float
     cfl: float
     dx: float
+    flux: str
     limiter: str
     second_order: bool
     entropy_fix: bool
     conserved: np.ndarray = field(repr=False, default=None)
 
+    #: Display names for the plot legend, where the conventional
+    #: capitalisation differs from the lowercase option name.
+    _PRETTY = {
+        "roe": "Roe",
+        "hll": "HLL",
+        "hllc": "HLLC",
+        "rusanov": "Rusanov",
+        "lax_friedrichs": "Lax-Friedrichs",
+        "ausm": "AUSM+",
+    }
+
     @property
     def label(self):
         """A short human-readable description, suitable for a plot legend."""
-        order = "2nd order" if self.second_order else "1st order"
+        name = self._PRETTY.get(self.flux, self.flux)
         if self.second_order:
-            return f"Roe, {order}, {self.limiter}"
-        return f"Roe, {order}"
+            return f"{name}, 2nd order, {self.limiter}"
+        return f"{name}, 1st order"
 
 
 def solve_roe(
@@ -180,6 +246,7 @@ def solve_roe(
     nx=200,
     x_diaphragm=0.5,
     cfl=0.9,
+    flux="roe",
     limiter="superbee",
     second_order=True,
     entropy_fix=True,
@@ -207,6 +274,11 @@ def solve_roe(
     cfl : float
         Courant number.  The TVD-limited scheme is stable for ``cfl <= 1``;
         ``0.9`` is a sensible working value and ``0.75`` is comfortably safe.
+    flux : str or int
+        Numerical flux: ``"roe"``, ``"hll"`` (equivalently ``"hlle"``),
+        ``"hllc"``, ``"rusanov"``, ``"lax_friedrichs"`` or ``"ausm"``.
+        See :mod:`riemann.fluxes`.  ``"hllc"`` is the best general-purpose
+        choice; ``"roe"`` is the default for backwards compatibility.
     limiter : str or int
         Flux limiter: ``"superbee"``, ``"minmod"``, ``"vanleer"``,
         ``"vanalbada"`` or ``"none"``.  Integers 0/1 map to superbee/minmod to
@@ -217,7 +289,8 @@ def solve_roe(
         showing how much the TVD term actually buys.
     entropy_fix : bool
         Apply the Harten-Hyman entropy fix.  Setting this ``False`` reproduces
-        the entropy-violating rarefaction glitch at a sonic point.
+        the entropy-violating rarefaction glitch at a sonic point.  Only the
+        Roe flux uses it; the others ignore it.
     max_steps : int
         Safety cap on the number of time steps.
 
@@ -233,6 +306,7 @@ def solve_roe(
         raise ValueError("cfl must lie in (0, 1]")
 
     code = limiter_code(limiter)
+    fcode = flux_code(flux)
     gamma = float(gamma)
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
@@ -258,18 +332,7 @@ def solve_roe(
         s_max = _max_signal_speed(u_all, gamma, N_GHOST)
         if s_max <= 0.0:
             raise FloatingPointError(
-                "Roe scheme produced a non-physical state (negative pressure or "
-                f"density) at step {steps}, t = {t:.6g}.\n"
-                "Roe's solver does not preserve positivity of internal energy: for "
-                "near-vacuum star states it is known to fail outright (Einfeldt, "
-                "Munz, Roe & Sjoegreen, J. Comput. Phys. 92:273, 1991; Toro "
-                "Sec. 11.4).  Toro's Test 2 (the '123' problem) is the standard "
-                "example and fails even at first order.\n"
-                "If the problem is not near-vacuum, try a more diffusive limiter "
-                "(minmod) or second_order=False.  Note that *lowering* the CFL "
-                "number is not a remedy for this scheme: the second-order "
-                "correction scales as 1 - |nu|, so a smaller step removes "
-                "dissipation rather than adding it."
+                _positivity_message(fcode, steps, t)
             )
         dt = cfl * dx / s_max
 
@@ -278,7 +341,8 @@ def solve_roe(
             dt = t_end - t
 
         u_all = _advance(
-            u_all, gamma, dx, dt, N_GHOST, code, entropy_fix, second_order
+            u_all, gamma, dx, dt, N_GHOST, fcode, code, entropy_fix,
+            second_order,
         )
         if not np.all(np.isfinite(u_all)):
             raise FloatingPointError(
@@ -308,6 +372,7 @@ def solve_roe(
         gamma=gamma,
         cfl=float(cfl),
         dx=float(dx),
+        flux=FLUX_NAMES[fcode],
         limiter=LIMITER_NAMES[code],
         second_order=bool(second_order),
         entropy_fix=bool(entropy_fix),

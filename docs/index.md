@@ -29,19 +29,26 @@ entropy fix for transonic rarefactions; the solver's one hard limitation
 (it is not positivity-preserving near vacuum); the finite-volume driver,
 CFL condition and boundary conditions.
 
-### [3. Second-order accuracy and TVD flux limiters](tvd-extension.md)
+### [3. Numerical flux functions](flux-functions.md)
+*Toro Chapter 10; Liou 1996.* HLL with Einfeldt wave speeds, HLLC and its
+contact wave, AUSM+ and its flux splitting, Rusanov and Lax-Friedrichs;
+measured contact resolution, accuracy and cost for all six; which fluxes run
+which problems and why; and what is deliberately not implemented
+(AUSM+-up's low-Mach terms, SLAU) with the evidence behind that decision.
+
+### [4. Second-order accuracy and TVD flux limiters](tvd-extension.md)
 *Toro Chapters 13 and 14.* Godunov's theorem and why a nonlinear scheme is
 needed; the flux-limited second-order correction; the smoothness sensor
 $r_k$; Sweby's TVD region and the four limiters; what second order does and
 does not buy; stability.
 
-### [4. Validation and results](validation.md)
+### [5. Validation and results](validation.md)
 Every figure, with the numbers behind it: Sod's problem against the exact
 solution; limiters and order of accuracy; the entropy glitch and its fix;
 grid convergence; Toro's test suite; the documented failure on Test 2; a
 dimensional (SI) shock tube; what the test suite covers.
 
-### [5. Porting notes: MATLAB to Python](porting-notes.md)
+### [6. Porting notes: MATLAB to Python](porting-notes.md)
 File-by-file mapping from the archived MATLAB code, and the complete list of
 bugs found and fixed — a wrong exponent in the Newton derivative, an
 unbounded iteration with a dimensionally meaningless tolerance, gaps in the
@@ -66,6 +73,8 @@ removed during the port itself.
 | $\tilde{\lambda}_{k},\ \tilde{\mathbf{K}}_{k},\ \tilde{\alpha}_{k}$ | Roe eigenvalue, right eigenvector and wave strength of family $k$ |
 | $\nu_{k}$ | Courant number $\tilde{\lambda}_{k}\Delta t/\Delta x$ of family $k$ |
 | $\phi(r)$ | flux limiter |
+| $S_L,\ S_R,\ S_*$ | HLL/HLLC left, right and contact wave speeds |
+| $M^{\pm}_{(4)},\ P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
 
 ### Modules
 
@@ -73,7 +82,8 @@ removed during the port itself.
 | --- | --- |
 | `riemann/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
 | `riemann/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
-| `riemann/roe.py` | Roe average, eigenstructure, flux, entropy fix, limiter term |
+| `riemann/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
+| `riemann/fluxes.py` | HLL, HLLC, AUSM+, Rusanov, Lax-Friedrichs; dispatch; TVD term |
 | `riemann/limiters.py` | superbee, minmod, van Leer, van Albada |
 | `riemann/solver.py` | conservative update, CFL time step, boundary conditions |
 | `riemann/problems.py` | Toro's test problems and two extras |

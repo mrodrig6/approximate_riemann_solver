@@ -143,4 +143,12 @@ The scheme is stable for $C_{\text{cfl}} \le 1$. In practice:
 
 ---
 
+One caveat on the base flux: the correction above is applied on the Roe
+characteristic fields *whichever* first-order flux is in use, which is the
+usual construction. It works for all of them except classical
+Lax-Friedrichs, whose odd-even decoupling drives every limiter ratio to zero
+— see [flux-functions.md](flux-functions.md#7-laxfriedrichs-decouples-the-grid).
+
+---
+
 **Next:** [Validation and results](validation.md)
