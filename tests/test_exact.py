@@ -50,7 +50,7 @@ def test_pressure_function_vanishes_at_the_root():
 
 
 def test_pressure_function_derivative_matches_finite_difference():
-    """Guards the rarefaction exponent that was wrong in the MATLAB original."""
+    """The rarefaction exponent is easy to get wrong; pin it numerically."""
     prob = get_problem("sod")
     for p in (0.05, 0.2, 0.30313, 0.8, 5.0):
         h = 1e-6 * p
@@ -73,8 +73,8 @@ def test_pressure_function_is_monotone_increasing():
 def test_newton_is_insensitive_to_the_initial_guess():
     """Any positive starting point must reach the same root.
 
-    The MATLAB code hard-coded ``p = 0.5``; this checks the solver no longer
-    depends on that luck.
+    Newton on this f converges from any positive start, so the result must
+    not depend on the guess -- only the iteration count should.
     """
     prob = get_problem("sod")
     reference, _ = solve_star_pressure(prob.gamma, prob.left, prob.right)
@@ -100,8 +100,8 @@ def test_dimensional_problem_converges():
 def test_sampler_leaves_no_gaps():
     """Every sample point must get a physical state.
 
-    ``plot_rp.m`` left points sitting exactly on a wave at zero, because its
-    left and right branches both used strict inequalities.
+    A sampler that partitions the x/t axis with strict inequalities on both
+    sides leaves points lying exactly on a wave unassigned.
     """
     for name in ("sod", "toro3", "toro4", "toro5", "sonic_rarefaction"):
         prob = get_problem(name)

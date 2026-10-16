@@ -1,10 +1,8 @@
 r"""Figure generation for the Riemann solvers.
 
-Replaces the plotting that was embedded in ``plot_rp.m`` and
-``plot_roe_eue.m``.  Separating the plotting from the solvers is the main
-structural change of the port: the MATLAB functions computed *and* drew, so
-there was no way to get the numbers without a figure, and no way to overlay a
-third curve without editing the solver.
+The solvers return plain data objects and this module draws them, so a run
+can be made without producing a figure and any number of runs can be overlaid
+without touching solver code.
 
 A note on LaTeX
 ---------------
@@ -37,6 +35,7 @@ __all__ = [
     "use_paper_style",
     "plot_comparison",
     "plot_series",
+    "plot_shallow_water",
     "save_figure",
 ]
 
@@ -286,6 +285,72 @@ def plot_series(x_values, y_values, labels, xlabel, ylabel, title=None, logx=Fal
         ax.legend()
     fig.tight_layout()
     return fig, ax
+
+
+def plot_shallow_water(
+    exact=None,
+    numerical=(),
+    fields=("h", "u"),
+    title=None,
+    markevery=1,
+    xlabel="$x$ (m)",
+    figsize=(9.0, 3.8),
+):
+    """Comparison figure for the shallow-water equations.
+
+    The counterpart of :func:`plot_comparison`, with two panels rather than
+    four because the system has two conserved variables.  Accepts the
+    ``ShallowWaterSolution`` of the exact solver and any number of
+    ``ShallowWaterResult`` objects, or ``(result, label)`` pairs.
+
+    Available fields are ``"h"`` (depth), ``"u"`` (velocity) and
+    ``"discharge"`` (``h u``, the second conserved variable).
+    """
+    import matplotlib.pyplot as plt
+
+    use_paper_style()
+    labels = {"h": "$h$ (m)", "u": "$u$ (m/s)", "discharge": "$hu$ (m$^2$/s)"}
+    titles = {"h": "Depth", "u": "Velocity", "discharge": "Discharge"}
+
+    n_panels = len(fields)
+    fig, axes = plt.subplots(1, n_panels, figsize=figsize, sharex=True)
+    axes = np.atleast_1d(axes).ravel()
+
+    runs = []
+    for item in numerical:
+        runs.append(item if isinstance(item, tuple) else (item, item.label))
+
+    for ax, field in zip(axes, fields):
+        if exact is not None:
+            ax.plot(
+                exact.x, getattr(exact, field), color=PALETTE["exact"],
+                linewidth=2.0, label="Exact", zorder=2,
+            )
+        for idx, (sol, label) in enumerate(runs):
+            ax.plot(
+                sol.x, getattr(sol, field), linestyle="none",
+                marker=MARKERS[idx % len(MARKERS)], markersize=4.0,
+                markerfacecolor="none", markeredgewidth=1.1,
+                color=PALETTE["series"][idx % len(PALETTE["series"])],
+                markevery=markevery, label=label, zorder=3 + idx,
+            )
+        ax.set_ylabel(labels[field])
+        ax.set_xlabel(xlabel)
+        ax.set_title(titles[field], loc="left", color="#52514e")
+        ax.margins(x=0.02, y=0.1)
+
+    handles, lbls = axes[0].get_legend_handles_labels()
+    if len(lbls) >= 2:
+        fig.legend(
+            handles, lbls, loc="lower center", ncol=min(len(lbls), 4),
+            bbox_to_anchor=(0.5, -0.04),
+        )
+    if title:
+        fig.suptitle(title, fontsize=12)
+        fig.tight_layout(rect=(0, 0.04, 1, 0.93))
+    else:
+        fig.tight_layout(rect=(0, 0.04, 1, 1))
+    return fig, axes
 
 
 def save_figure(fig, path):

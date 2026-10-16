@@ -33,8 +33,6 @@ from ._jit import njit
 __all__ = ["LIMITERS", "LIMITER_NAMES", "limiter_code", "limiter_phi"]
 
 #: Mapping from limiter name to the integer code understood by the kernels.
-#: Codes 0 and 1 are kept identical to the MATLAB original's ``flim`` flag
-#: (0 = superbee, 1 = minmod) so old driver scripts translate directly.
 LIMITERS = {
     "superbee": 0,
     "minmod": 1,

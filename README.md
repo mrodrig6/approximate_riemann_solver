@@ -24,13 +24,18 @@ chapter and equation number it comes from.
 - **Six numerical fluxes**, interchangeable via one argument: **Roe** (with
   the **Harten–Hyman entropy fix**), **HLLC**, **HLL/HLLE**, **AUSM+-up**,
   **Rusanov** and **Lax–Friedrichs**.
+- **Two second-order schemes**: a flux-limited **TVD** correction, and the
+  one-step **ADER** scheme — no Runge–Kutta stages, second order in space and
+  time within a single update.
+- **The shallow-water equations** as a second system, with their own exact
+  solver (wet *and* dry bed), fluxes and test problems.
 - **Second-order TVD extension** with a choice of flux limiters — superbee,
   minmod, van Leer, van Albada — applied wave by wave.
 - **Toro's five standard test problems** built in, plus a transonic case and a
   dimensional (SI) air shock tube.
 - **Numba acceleration**, roughly 100× over pure Python, with a transparent
   fallback when Numba is not installed.
-- **142 tests** checking the solvers against Toro's published values and
+- **232 tests** checking the solvers against Toro's published values and
   against their own defining identities (the Roe U-property, the AUSM+ split
   identities, Sweby's TVD region, exact contact preservation, exact
   conservation).
@@ -115,6 +120,7 @@ save_figure(fig, "sod.png")
 ```bash
 python -m riemann --help                # all options, problems and fluxes
 python -m riemann sod --flux hllc       # a different numerical flux
+python -m riemann sod --scheme ader2    # the one-step ADER scheme
 python -m riemann toro2 --flux hllc     # the near-vacuum case Roe cannot run
 python -m riemann toro4 --nx 400        # two colliding strong shocks
 python -m riemann sod --first-order     # drop the TVD correction, see the difference
@@ -125,10 +131,11 @@ python -m riemann air_shock_tube --dimensional --plot air.png
 Three worked examples, each runnable directly:
 
 ```bash
-python examples/sod_shock_tube.py          # the basics (replaces main.m)
+python examples/sod_shock_tube.py          # the basics
 python examples/compare_fluxes.py          # all six fluxes side by side
+python examples/shallow_water_dam_break.py # shallow water, wet and dry bed
 python examples/compare_limiters.py        # first vs second order, four limiters
-python examples/dimensional_shock_tube.py  # SI units (replaces test_input2o1.m)
+python examples/dimensional_shock_tube.py  # SI units
 ```
 
 And two utility scripts:
@@ -148,11 +155,12 @@ in **[`docs/`](docs/index.md)**:
 | Page | Covers |
 | --- | --- |
 | [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{*}) = 0$, sampling, vacuum |
-| [Roe's approximate Riemann solver](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
-| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: HLL, HLLC, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
-| [Second-order accuracy and TVD flux limiters](docs/tvd-extension.md) | Toro Ch. 13–14: Godunov's theorem, flux limiting, Sweby's region |
+| [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: Roe, HLLC, HLL, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
+| [Roe's solver in detail](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
+| [The finite-volume scheme](docs/finite-volume-scheme.md) | Toro Ch. 6, 13–14: conservative update, CFL, boundaries, flux limiting, Sweby's region |
+| [The ADER scheme](docs/ader.md) | Toro Ch. 19–20: the derivative Riemann problem, Cauchy–Kovalewski, measured order of accuracy |
+| [The shallow-water equations](docs/shallow-water.md) | Toro's free-surface book: exact solver on wet and dry beds, fluxes, dam-break results |
 | [Validation and results](docs/validation.md) | All figures and the numbers behind them |
-| [Porting notes: MATLAB to Python](docs/porting-notes.md) | File mapping and every bug fixed in the port |
 
 ---
 
@@ -166,7 +174,7 @@ in **[`docs/`](docs/index.md)**:
 | `toro4` | right half of the blast — two colliding strong shocks | Toro Test 4 |
 | `toro5` | slowly-moving contact, stresses contact resolution | Toro Test 5 |
 | `sonic_rarefaction` | transonic fan — exercises the entropy fix | this repository |
-| `air_shock_tube` | Mach ≈ 1.35 shock in air, SI units | `test_input2o1.m` |
+| `air_shock_tube` | Mach ≈ 1.35 shock in air, SI units | dimensional case |
 
 `toro2` is included *because* it fails. Roe's linearisation does not preserve
 positivity of internal energy, so a near-vacuum star region drives the
@@ -203,6 +211,22 @@ cheapest of the six and resolves the contact in 4 cells; its coefficients are
 adapted from the benchmarked implementation in EMS.
 
 ![Toro Test 2 with HLLC and HLL](docs/figures/toro2_positivity.png)
+
+### Order of accuracy
+
+Both second-order schemes reach their formal order on smooth data. (On a
+discontinuity every scheme is first order in $L_1$, which is why the
+[grid-convergence figure](docs/validation.md#4-grid-convergence) on Sod shows
+slope $-1$ for all of them.)
+
+![Order of accuracy on a smooth acoustic pulse](docs/figures/order_of_accuracy.png)
+
+### Shallow water
+
+![Dam break on a wet and a dry bed](docs/figures/shallow_water_dam_break.png)
+
+The dry case has a closed-form answer — Ritter's solution — and is the one a
+wet-bed-only solver cannot run at all.
 
 ### The limiters
 
@@ -249,38 +273,52 @@ paid once per machine rather than once per process.
 ## Repository layout
 
 ```
-riemann/              the Python package
+riemann/
   thermo.py             equation of state, variable conversions, Euler flux
   exact.py              exact Riemann solver
-  roe.py                Roe average, eigenstructure, Roe flux, entropy fix
-  fluxes.py             HLL, HLLC, AUSM+-up, Rusanov, Lax-Friedrichs; TVD term
-  limiters.py           superbee, minmod, van Leer, van Albada
+  fluxes/
+    roe.py                Roe average, eigenstructure, Roe flux, entropy fix
+    hll.py                Einfeldt wave speeds, HLL, HLLC
+    ausm.py               split polynomials, AUSM+-up
+    central.py            Rusanov, Lax-Friedrichs
+    interface.py          flux dispatch and the second-order TVD term
+    registry.py           flux names and codes
+  ader.py               the one-step ADER scheme
+  limiters.py           superbee, minmod, van Leer, van Albada (shared)
   solver.py             finite-volume driver, CFL, boundary conditions
-  problems.py           Toro's test problems
+  problems.py           test problems
+  shallow_water/
+    physics.py            variables, flux, Roe average, eigenstructure
+    exact.py              exact solver, wet and dry bed
+    fluxes.py             Roe, HLL, Rusanov, Lax-Friedrichs; TVD term
+    solver.py             finite-volume driver
+    problems.py           dam-break problems
   plotting.py           four-panel comparison figures
   cli.py                python -m riemann
   _jit.py               optional-Numba shim
-docs/                 formulation, validation, porting notes, figures
-examples/             four runnable examples
+docs/                 formulation, flux functions, validation, figures
+examples/             five runnable examples
 scripts/              figure generation and benchmarking
-tests/                142 pytest tests
-matlab_legacy/        the original MATLAB implementation, archived
+tests/                232 pytest tests, mirroring the package layout
+matlab_legacy/        archived MATLAB implementation
 ```
 
 ---
 
 ## Roadmap
 
-- **SLAU** (Shima & Kitamura 2011). Left out: its functions `g` and `chi`
-  could not be verified from this environment, and EMS does not implement it.
-  `riemann/fluxes.py` is arranged so it slots in beside AUSM+-up. See
-  [the write-up](docs/flux-functions.md#what-is-still-not-implemented-slau).
+- **SLAU** (Shima & Kitamura 2011); `riemann/fluxes/` is arranged so it slots
+  in as another module beside `ausm.py`.
+- **ADER beyond second order**: more Taylor terms in time and a
+  higher-degree reconstruction, from the same template.
+- **Shallow water with bed topography**, which needs a well-balanced
+  treatment of the source term; the flat-bed solver here is the starting
+  point, and still water is already an exact fixed point.
 - MUSCL-Hancock reconstruction (Toro Ch. 14) as an alternative route to second
   order.
 - Extension to two dimensions by dimensional splitting (Toro Ch. 16).
 - Stiffened-gas and Mie–Grüneisen equations of state.
 
-Done: HLL, HLLE, HLLC, AUSM+-up, Rusanov and Lax–Friedrichs.
 
 ---
 

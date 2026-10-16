@@ -8,11 +8,13 @@
 > from Liou, J. Comput. Phys. **129**:364 (1996). Roe has its own page:
 > [roe-solver.md](roe-solver.md).
 
-The finite-volume driver of [roe-solver.md](roe-solver.md#6-the-finite-volume-driver)
+The conservative update of
+[finite-volume-scheme.md](finite-volume-scheme.md#1-the-conservative-update)
 needs one thing from a Riemann solver: a single flux vector at each cell
 interface. Everything else — the time step, the boundary conditions, the TVD
-correction — is independent of how that flux is formed. `riemann/fluxes.py`
-therefore treats the flux as a plug-in, selected with `flux=`:
+correction — is independent of how that flux is formed. `riemann/fluxes/`
+therefore treats the flux as a plug-in, one module per family, selected with
+`flux=`:
 
 ```python
 solve_roe(gamma, w_l, w_r, t_end, nx=200, flux="hllc")
@@ -26,14 +28,14 @@ python -m riemann sod --flux hllc
 
 ## 1. The three families
 
-| Flux | `flux=` | Waves resolved | Source |
-| --- | --- | --- | --- |
-| Roe (+ Harten–Hyman fix) | `roe` | 3 | Toro Ch. 11 |
-| HLLC | `hllc` | 3 | Toro Sec. 10.4 |
-| HLL / HLLE | `hll`, `hlle` | 2 | Toro Secs. 10.3, 10.5 |
-| AUSM+-up | `ausmup`, `ausm` | 3 (split) | Liou 2006 |
-| Rusanov (local LF) | `rusanov`, `llf` | 0 (scalar) | Toro Sec. 10.5 |
-| Lax–Friedrichs | `lax_friedrichs`, `lf` | 0 (scalar) | Toro Sec. 5.3.4 |
+| Flux | `flux=` | Waves | Module | Source |
+| --- | --- | --- | --- | --- |
+| Roe (+ Harten–Hyman fix) | `roe` | 3 | `fluxes/roe.py` | Toro Ch. 11 |
+| HLLC | `hllc` | 3 | `fluxes/hll.py` | Toro Sec. 10.4 |
+| HLL / HLLE | `hll`, `hlle` | 2 | `fluxes/hll.py` | Toro Secs. 10.3, 10.5 |
+| AUSM+-up | `ausmup`, `ausm` | 3 (split) | `fluxes/ausm.py` | Liou 2006 |
+| Rusanov (local LF) | `rusanov`, `llf` | 0 (scalar) | `fluxes/central.py` | Toro Sec. 10.5 |
+| Lax–Friedrichs | `lax_friedrichs`, `lf` | 0 (scalar) | `fluxes/central.py` | Toro Sec. 5.3.4 |
 
 **Central / Rusanov-type.** A central average plus one scalar dissipation
 coefficient applied to the whole state vector:
@@ -162,45 +164,32 @@ $$M^{+}_{(4)} = \tfrac{1}{8}M^{4} + \tfrac{1}{2}M + \tfrac{3}{8},$$
 
 $$P^{+}_{(5)} = \tfrac{3}{16}M^{5} - \tfrac{5}{8}M^{3} + \tfrac{15}{16}M + \tfrac{1}{2}.$$
 
-### Provenance of the coefficients
+### Where the coefficients come from
 
-$K_p = 0.4$ and $K_u = 0.2$, and the arithmetic-mean $a_{1/2}$, are taken from
-**EMS** (the Eulerian Multicomponent Solver of the same research group),
-`src/riemann_solvers/ausm6.cpp`, where they are benchmarked. They are not
-free parameters to be guessed at, and this repository has the scar tissue to
-prove it.
+$K_p = 0.4$ and $K_u = 0.2$, and the arithmetic-mean $a_{1/2}$, follow the
+benchmarked implementation in **EMS** (the Eulerian Multicomponent Solver of
+the same research group), `src/riemann_solvers/ausm6.cpp`.
 
-An earlier version of this code reconstructed the `-up` terms without access
-to the 2006 paper, and got them wrong in three compounding ways: Liou's
-critical-speed construction for $a_{1/2}$ instead of the arithmetic mean; a
-spurious $f_a$ all-speed scaling; and, fatally, the $K_u$ term written with
-$K_u = 0.75$ against $(\rho_L + \rho_R)$ rather than $K_u = 0.2$ against
-$\rho_{1/2}$ — making that term **7.5 times too large**.
+They matter, and they are worth stating separately from $\alpha$ and $\beta$,
+because the two groups have different standing. $\alpha$ and $\beta$ are
+fixed by the polynomial construction and are pinned by the identities above.
+$K_p$ and $K_u$ are *diffusion coefficients*, and those identities say
+nothing about them — both hold for every value. A $K_u$ that is too large is
+anti-dissipative rather than merely inaccurate: it destabilises a moving
+contact, amplifying round-off until the pressure error swamps the solution.
 
-The result was anti-dissipative. On a plain moving contact, where the exact
-answer is that pressure stays constant, it amplified round-off by a factor of
-about 1.5 per step until the pressure error reached 50%; the measured
-stability threshold sat near 0.35 in its own parameterisation, well below the
-1.5 it was effectively applying.
-
-The lesson is worth stating because it generalises: the sign and structure of
-both terms were *right*, and every identity test passed. Consistency
-identities constrain the split polynomials, not the diffusion coefficients.
-What caught it was a physical invariant —
-`test_moving_contact_keeps_pressure_constant` — and that test is now the guard
-against the coefficients drifting again.
+What constrains them is a physical invariant rather than an algebraic one: a
+contact advected at uniform speed must not generate pressure.
+`test_moving_contact_keeps_pressure_constant` checks exactly that, and is the
+guard against the coefficients drifting.
 
 ### What is still not implemented: SLAU
 
 The **SLAU** scheme (Shima & Kitamura, AIAA J. **49**:1693, 2011) is not
-included. Its defining functions $g$ and $\chi$ could not be verified: the
-environment this work was done in allows outbound network access to GitHub and
-the package registries only, so the paper and every secondary source that
-restates it in full were unreachable, and EMS does not implement it.
-
-Given what happened with the $K_u$ coefficient above, guessing at $g$ and
-$\chi$ would be a poor idea. `riemann/fluxes.py` is structured so SLAU slots
-in beside AUSM+-up when the formulation is to hand.
+included: its defining functions $g$ and $\chi$ are not verified here, and
+guessing at a scheme's diffusion functions is exactly the mistake the
+previous section warns against. `riemann/fluxes/` is structured so it slots
+in as another module beside `ausm.py` when the formulation is to hand.
 
 ## 5. Measured behaviour
 
@@ -280,10 +269,9 @@ in `riemann.fluxes.ROBUST_FLUXES`.
 `test_ausm_up_runs_every_problem_at_first_order` asserts exactly that, and on
 `toro5` it is the most accurate first-order flux of the six. What fails is the
 pairing with this package's characteristic-based TVD correction on the three
-most extreme cases. That pairing is this repository's choice, not Liou's and
-not EMS's: EMS reconstructs with WENO rather than limiting Roe characteristic
-fields, which is the more natural companion for a flux that never forms an
-eigensystem.
+most extreme cases. That pairing is a choice of this code, not of the scheme:
+a WENO reconstruction is the more natural companion for a flux that never
+forms an eigensystem, and is what EMS uses.
 
 ---
 
@@ -302,7 +290,7 @@ correction vanishes identically — measured over a whole Sod run, the
 correction weight was nonzero at **0 of 603** interface-wave pairs, and the
 second-order and first-order solutions agreed to $8 \times 10^{-14}$.
 
-This is classical odd–even decoupling, not a bug, and
+This is classical odd–even decoupling, and
 `test_lax_friedrichs_odd_even_decoupling_disables_the_limiter` pins it. The
 local-dissipation flux, Rusanov, does not suffer from it, which is one more
 reason to prefer it over Lax–Friedrichs whenever a cheap robust flux is
@@ -320,11 +308,14 @@ wanted.
 - **Rusanov** as a cheap, simple fallback; first order only if you need its
   positivity guarantee.
 - **AUSM+-up** when speed matters: it is the cheapest flux here and resolves
-  contacts well. Prefer `second_order=False` on very strong shocks, or pair it
-  with a WENO reconstruction as EMS does.
+  contacts well. Prefer `second_order=False` on very strong shocks, or pair
+  it with a WENO reconstruction.
 - **Lax–Friedrichs** for teaching, as the baseline the others are measured
   against.
 
 ---
+
+**Next:** [Roe's solver in detail](roe-solver.md) ·
+[The finite-volume scheme](finite-volume-scheme.md)
 
 **Back to:** [Documentation index](index.md)

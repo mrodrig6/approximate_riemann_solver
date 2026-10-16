@@ -9,7 +9,10 @@ follow:
 > [doi:10.1007/b79761](https://doi.org/10.1007/b79761)
 
 Each page below cites the specific chapters and equations it implements, so
-the code can be read with the book open beside it.
+the code can be read with the book open beside it. The pages follow the
+package layout: one for the exact solver, one for the flux functions, one for
+the scheme built on them, then the ADER alternative and the shallow-water
+system.
 
 ---
 
@@ -22,39 +25,41 @@ reduction to the single scalar equation $f(p_{*}) = 0$; why Newton–Raphson
 always converges and how the initial guess is chosen; self-similar sampling of
 the wave fan; the vacuum condition.
 
-### [2. Roe's approximate Riemann solver](roe-solver.md)
+### [2. Numerical flux functions](flux-functions.md)
+*Toro Chapter 10; Liou 2006.* The six interchangeable fluxes — Roe, HLLC,
+HLL with Einfeldt wave speeds, AUSM+-up, Rusanov and Lax-Friedrichs — grouped
+by family; the formulation of each; measured contact resolution, accuracy and
+cost; which fluxes run which problems and why.
+
+### [3. Roe's solver in detail](roe-solver.md)
 *Toro Chapter 11.* The linearisation and the U-property; the Roe-average
-state, eigenstructure and wave strengths; the Roe flux; the Harten–Hyman
-entropy fix for transonic rarefactions; the solver's one hard limitation
-(it is not positivity-preserving near vacuum); the finite-volume driver,
-CFL condition and boundary conditions.
+state, eigenstructure and wave strengths; the Harten–Hyman entropy fix for
+transonic rarefactions; and the solver's one hard limitation, that it is not
+positivity-preserving near vacuum.
 
-### [3. Numerical flux functions](flux-functions.md)
-*Toro Chapter 10; Liou 2006.* HLL with Einfeldt wave speeds, HLLC and its
-contact wave, AUSM+-up and its flux splitting, Rusanov and Lax-Friedrichs;
-measured contact resolution, accuracy and cost for all six; which fluxes run
-which problems and why; where the AUSM+-up coefficients come from, and what
-a mis-scaled one did; and what is still not implemented (SLAU).
+### [4. The finite-volume scheme](finite-volume-scheme.md)
+*Toro Chapters 6, 13 and 14.* The conservative update, the CFL time step and
+the boundary conditions; Godunov's theorem and why a nonlinear scheme is
+needed for second order; the flux-limited correction; the smoothness sensor
+$r_k$; Sweby's TVD region and the four limiters; stability.
 
-### [4. Second-order accuracy and TVD flux limiters](tvd-extension.md)
-*Toro Chapters 13 and 14.* Godunov's theorem and why a nonlinear scheme is
-needed; the flux-limited second-order correction; the smoothness sensor
-$r_k$; Sweby's TVD region and the four limiters; what second order does and
-does not buy; stability.
+### [5. The ADER scheme](ader.md)
+*Toro Chapters 19–20.* A one-step route to second order: a Riemann problem
+solved for the derivatives as well as the states, and the Cauchy–Kovalewski
+procedure turning time derivatives into space derivatives; the measured
+order of accuracy on smooth data, and why that needs smooth data at all.
 
-### [5. Validation and results](validation.md)
+### [6. The shallow-water equations](shallow-water.md)
+*Toro, Shock-Capturing Methods for Free-Surface Shallow Flows.* The same
+machinery for a second system: exact solver on wet and dry beds, Roe, HLL,
+Rusanov and Lax–Friedrichs fluxes, dam-break results. Why there is no HLLC
+here, and why a dry bed is routine where a vacuum is pathological.
+
+### [7. Validation and results](validation.md)
 Every figure, with the numbers behind it: Sod's problem against the exact
 solution; limiters and order of accuracy; the entropy glitch and its fix;
 grid convergence; Toro's test suite; the documented failure on Test 2; a
 dimensional (SI) shock tube; what the test suite covers.
-
-### [6. Porting notes: MATLAB to Python](porting-notes.md)
-File-by-file mapping from the archived MATLAB code, and the complete list of
-bugs found and fixed — a wrong exponent in the Newton derivative, an
-unbounded iteration with a dimensionally meaningless tolerance, gaps in the
-exact sampler, a wrong base state in the entropy fix, an unguarded division
-in the limiter, a wrong maximum signal speed, and one bug introduced and
-removed during the port itself.
 
 ---
 
@@ -76,6 +81,7 @@ removed during the port itself.
 | $S_L,\ S_R,\ S_*$ | HLL/HLLC left, right and contact wave speeds |
 | $M^{\pm}_{(4)},\ P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
 | $K_p,\ K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
+| $h,\ a = \sqrt{gh}$ | shallow-water depth and gravity-wave celerity |
 
 ### Modules
 
@@ -83,9 +89,15 @@ removed during the port itself.
 | --- | --- |
 | `riemann/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
 | `riemann/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
-| `riemann/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
-| `riemann/fluxes.py` | HLL, HLLC, AUSM+-up, Rusanov, Lax-Friedrichs; dispatch; TVD term |
-| `riemann/limiters.py` | superbee, minmod, van Leer, van Albada |
+| `riemann/fluxes/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
+| `riemann/fluxes/hll.py` | Einfeldt wave speeds, HLL, HLLC |
+| `riemann/fluxes/ausm.py` | split polynomials, AUSM+-up |
+| `riemann/fluxes/central.py` | Rusanov, Lax-Friedrichs |
+| `riemann/fluxes/interface.py` | flux dispatch and the second-order TVD term |
+| `riemann/fluxes/registry.py` | flux names and codes |
+| `riemann/ader.py` | the one-step ADER scheme |
+| `riemann/limiters.py` | superbee, minmod, van Leer, van Albada (shared) |
+| `riemann/shallow_water/` | the shallow-water system: physics, exact solver, fluxes, driver, problems |
 | `riemann/solver.py` | conservative update, CFL time step, boundary conditions |
 | `riemann/problems.py` | Toro's test problems and two extras |
 | `riemann/plotting.py` | four-panel comparison figures |
@@ -102,7 +114,7 @@ removed during the port itself.
 | `toro4` | two colliding strong shocks | Toro Test 4 |
 | `toro5` | slowly-moving contact | Toro Test 5 |
 | `sonic_rarefaction` | transonic fan — exercises the entropy fix | this repository |
-| `air_shock_tube` | Mach 1.35 shock in air, SI units | `test_input2o1.m` |
+| `air_shock_tube` | Mach 1.35 shock in air, SI units | dimensional case |
 
 ---
 

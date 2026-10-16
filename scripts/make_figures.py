@@ -28,10 +28,21 @@ import matplotlib
 matplotlib.use("Agg")  # no display needed; must precede the pyplot import
 import matplotlib.pyplot as plt  # noqa: E402
 
-from riemann import get_problem, solve_exact, solve_roe  # noqa: E402
+from riemann import (  # noqa: E402
+    acoustic_pulse,
+    cell_centres,
+    get_problem,
+    solve_exact,
+    solve_field,
+    solve_roe,
+)
+from riemann.shallow_water import get_problem as swe_problem  # noqa: E402
+from riemann.shallow_water import solve as swe_solve  # noqa: E402
+from riemann.shallow_water import solve_exact as swe_solve_exact  # noqa: E402
 from riemann.plotting import (  # noqa: E402
     MARKERS,
     PALETTE,
+    plot_shallow_water,
     plot_comparison,
     plot_series,
     save_figure,
@@ -248,7 +259,7 @@ def figure_convergence():
 
 
 def figure_air_shock_tube():
-    """The dimensional (SI) shock-tube case from the original MATLAB driver."""
+    """The dimensional (SI) shock-tube case."""
     prob = get_problem("air_shock_tube")
     exact = solve_exact(
         prob.gamma, prob.left, prob.right, prob.t_end, n=2000,
@@ -393,6 +404,126 @@ def figure_toro2_positivity():
     return save_figure(fig, os.path.join(FIG_DIR, "toro2_positivity.png"))
 
 
+def figure_order_of_accuracy():
+    """Formal order of accuracy, measured on smooth data.
+
+    The grid-convergence figure on Sod shows slope -1 for every scheme,
+    which is correct but says nothing about their formal order: a
+    discontinuity caps the L1 rate at 1 whatever the method.  On smooth data
+    the orders separate, and the one-step ADER scheme and the flux-limited
+    TVD scheme both reach 2.
+    """
+    resolutions = np.array([50, 100, 200, 400, 800])
+    t_end = 0.15
+    ref = solve_field(
+        1.4, acoustic_pulse(cell_centres(6400)), t_end,
+        scheme="ader2", limiter="none", cfl=0.8,
+    )
+
+    configs = [
+        (dict(scheme="tvd", second_order=False), "1st order"),
+        (dict(scheme="tvd", limiter="none"), "TVD, 2nd order"),
+        (dict(scheme="ader2", limiter="none"), "ADER2"),
+    ]
+    curves, labels = [], []
+    for kwargs, label in configs:
+        errors = []
+        for nx in resolutions:
+            x = cell_centres(int(nx))
+            sol = solve_field(1.4, acoustic_pulse(x), t_end, cfl=0.8, **kwargs)
+            errors.append(np.mean(np.abs(sol.rho - np.interp(x, ref.x, ref.rho))))
+        curves.append(errors)
+        labels.append(label)
+
+    fig, ax = plot_series(
+        resolutions, curves, labels,
+        xlabel="number of cells",
+        ylabel=r"$L_1$ error in $\rho$",
+        title="Order of accuracy on a smooth acoustic pulse",
+        logx=True, logy=True,
+    )
+    for exponent, anchor, text in ((1.0, curves[0][0], "slope $-1$"),
+                                   (2.0, curves[2][0], "slope $-2$")):
+        ref_line = anchor * (resolutions[0] / resolutions) ** exponent
+        ax.plot(resolutions, ref_line, color="#9a9992", lw=1.0,
+                ls=(0, (4, 3)), zorder=1)
+        ax.annotate(
+            text, xy=(resolutions[-2], ref_line[-2]), xytext=(6, 4),
+            textcoords="offset points", fontsize=9, color="#52514e",
+        )
+    # Label only the resolutions actually run; matplotlib's default log
+    # minor ticks collide at this aspect ratio.
+    ax.set_xticks(resolutions)
+    ax.set_xticklabels([str(int(n)) for n in resolutions])
+    ax.set_xticks([], minor=True)
+    fig.tight_layout()
+    return save_figure(fig, os.path.join(FIG_DIR, "order_of_accuracy.png"))
+
+
+def figure_shallow_water():
+    """Dam break on a wet bed and on a dry bed, against the exact solutions."""
+    use_paper_style()
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 6.0))
+
+    for row, name in enumerate(("dam_break", "dam_break_dry")):
+        prob = swe_problem(name)
+        exact = swe_solve_exact(
+            prob.left, prob.right, prob.t_end, gravity=prob.gravity, n=2000,
+            x_diaphragm=prob.x_diaphragm,
+        )
+        sol = swe_solve(
+            prob.left, prob.right, prob.t_end, gravity=prob.gravity, nx=200,
+            x_diaphragm=prob.x_diaphragm, cfl=prob.cfl, flux="hll",
+        )
+        for col, field in enumerate(("h", "u")):
+            ax = axes[row, col]
+            ax.plot(exact.x, getattr(exact, field), color=PALETTE["exact"],
+                    lw=2.0, label="Exact", zorder=2)
+            ax.plot(sol.x, getattr(sol, field), ls="none", marker="o", ms=3.5,
+                    markerfacecolor="none", markeredgewidth=1.0,
+                    color=PALETTE["series"][row], label="HLL, 2nd order",
+                    zorder=3)
+            ax.set_ylabel("$h$ (m)" if field == "h" else "$u$ (m/s)")
+            ax.margins(y=0.12)
+        axes[row, 0].set_title(
+            "wet bed" if row == 0 else "dry bed", loc="left", color="#52514e"
+        )
+        axes[row, 1].set_title(
+            f"$t = {prob.t_end:g}$ s", loc="left", color="#52514e"
+        )
+    for ax in axes[1, :]:
+        ax.set_xlabel("$x$ (m)")
+
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=2,
+               bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle("Shallow water: dam break, 200 cells", fontsize=12)
+    fig.tight_layout(rect=(0, 0.02, 1, 0.95))
+    return save_figure(fig, os.path.join(FIG_DIR, "shallow_water_dam_break.png"))
+
+
+def figure_shallow_water_fluxes():
+    """The shallow-water fluxes compared, zoomed on the bore."""
+    prob = swe_problem("dam_break")
+    exact = swe_solve_exact(prob.left, prob.right, prob.t_end, n=2000)
+    pretty = {"roe": "Roe", "hll": "HLL", "rusanov": "Rusanov",
+              "lax_friedrichs": "Lax-Friedrichs"}
+    runs = []
+    for name in ("roe", "hll", "rusanov", "lax_friedrichs"):
+        sol = swe_solve(prob.left, prob.right, prob.t_end, nx=100, flux=name)
+        runs.append((sol, pretty[name]))
+    fig, axes = plot_shallow_water(
+        exact=exact, numerical=runs,
+        title="Shallow-water fluxes at the bore (dam break, 100 cells)",
+    )
+    for ax in axes:
+        ax.set_xlim(0.6, 0.9)
+        _autoscale_y(ax, 0.6, 0.9)
+    return save_figure(
+        fig, os.path.join(FIG_DIR, "shallow_water_fluxes.png")
+    )
+
+
 FIGURES = [
     figure_sod,
     figure_order_and_limiters,
@@ -402,6 +533,9 @@ FIGURES = [
     figure_air_shock_tube,
     figure_flux_comparison,
     figure_toro2_positivity,
+    figure_order_of_accuracy,
+    figure_shallow_water,
+    figure_shallow_water_fluxes,
 ]
 
 

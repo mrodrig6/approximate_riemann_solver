@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""The dimensional (SI) air shock tube from the original MATLAB driver.
+"""A dimensional (SI) air shock tube.
 
-This is the port of ``test_input2o1.m``.  It is worth running as its own
-example because it is the case that exposed two bugs in the MATLAB exact
-solver: a hard-coded initial pressure guess of ``0.5`` and an *absolute*
-Newton tolerance of ``1e-15``, neither of which means anything when the
-pressures are of order ``1e5`` Pa.  The Python solver uses Toro's adaptive
-initial guess and a relative tolerance, so the same code handles both this
-case and the non-dimensional ones without tuning.
+Worth running as its own example because it is the only case here with
+pressures of order 1e5 rather than order 1.  Nothing is tuned for it: the
+exact solver uses Toro's adaptive initial guess and a *relative* convergence
+criterion, both of which are scale-free, so the same code handles this and
+the non-dimensional problems alike.
 
 Run::
 

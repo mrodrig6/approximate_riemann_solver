@@ -1,0 +1,184 @@
+"""The one-step ADER scheme.
+
+The defining claims are that it is second-order accurate in space *and* time
+on smooth data, that it reaches that in a single step with no Runge-Kutta
+stages, and that it is a genuinely different scheme from the flux-limited
+TVD one rather than a relabelling of it.  Each is checked here.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from riemann import (
+    acoustic_pulse,
+    advected_pulse,
+    cell_centres,
+    get_problem,
+    solve_exact,
+    solve_field,
+    solve_roe,
+)
+
+GAMMA = 1.4
+
+
+def _order(errors, resolutions):
+    """Least-squares convergence rate from an error sequence."""
+    return -np.polyfit(np.log(resolutions), np.log(errors), 1)[0]
+
+
+def test_ader2_is_second_order_on_an_advected_pulse():
+    """Against the analytic answer: a pulse translated at constant speed.
+
+    Velocity and pressure are uniform, so the exact solution is the initial
+    density profile shifted by ``u t``.  The limiter is off: a limiter clips
+    smooth extrema and would mask the formal order.
+    """
+    t_end, u0 = 0.2, 1.0
+    resolutions = np.array([50, 100, 200, 400])
+    errors = []
+    for nx in resolutions:
+        x = cell_centres(int(nx))
+        sol = solve_field(
+            GAMMA, advected_pulse(x, velocity=u0), t_end,
+            scheme="ader2", limiter="none", cfl=0.8,
+        )
+        exact = advected_pulse(x - u0 * t_end, velocity=u0)[:, 0]
+        errors.append(np.mean(np.abs(sol.rho - exact)))
+    assert _order(np.array(errors), resolutions) > 1.9
+
+
+def test_ader2_is_second_order_on_a_nonlinear_pulse():
+    """Against a fine-grid reference: a smooth isentropic acoustic pulse.
+
+    This one excites the genuinely non-linear fields, where schemes of the
+    same formal order actually differ.
+    """
+    t_end = 0.15
+    ref_nx = 3200
+    ref = solve_field(
+        GAMMA, acoustic_pulse(cell_centres(ref_nx)), t_end,
+        scheme="ader2", limiter="none", cfl=0.8,
+    )
+    resolutions = np.array([50, 100, 200, 400])
+    errors = []
+    for nx in resolutions:
+        x = cell_centres(int(nx))
+        sol = solve_field(
+            GAMMA, acoustic_pulse(x), t_end,
+            scheme="ader2", limiter="none", cfl=0.8,
+        )
+        errors.append(np.mean(np.abs(sol.rho - np.interp(x, ref.x, ref.rho))))
+    assert _order(np.array(errors), resolutions) > 1.9
+
+
+def test_ader2_differs_from_the_tvd_scheme():
+    """They are distinct schemes, not two names for one.
+
+    On a *pure contact* the two coincide exactly -- both reduce to limited
+    Lax-Wendroff on the one active field -- so the discriminating test has to
+    excite the non-linear fields.
+    """
+    x = cell_centres(200)
+    kw = dict(limiter="none", cfl=0.8)
+    ader = solve_field(GAMMA, acoustic_pulse(x), 0.15, scheme="ader2", **kw)
+    tvd = solve_field(GAMMA, acoustic_pulse(x), 0.15, scheme="tvd", **kw)
+    assert np.max(np.abs(ader.rho - tvd.rho)) > 1e-5
+
+    # ... and on the pure contact they agree, which is a consistency check
+    # rather than a coincidence.
+    ader_c = solve_field(GAMMA, advected_pulse(x), 0.2, scheme="ader2", **kw)
+    tvd_c = solve_field(GAMMA, advected_pulse(x), 0.2, scheme="tvd", **kw)
+    assert np.max(np.abs(ader_c.rho - tvd_c.rho)) < 1e-12
+
+
+def test_ader2_takes_one_step_per_step():
+    """ADER is one-step: the step count is set by the CFL condition alone.
+
+    A two-stage Runge-Kutta scheme of the same order would need twice the
+    Riemann solves for the same number of time steps; ADER reaches second
+    order within the single update, so its step count matches the
+    first-order scheme's at the same CFL number.
+    """
+    prob = get_problem("sod")
+    kw = dict(nx=200, cfl=0.9, limiter="minmod")
+    ader = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
+                     scheme="ader2", **kw)
+    first = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
+                      second_order=False, **kw)
+    assert abs(ader.steps - first.steps) <= 1
+
+
+@pytest.mark.parametrize(
+    "name", ["sod", "toro3", "toro4", "sonic_rarefaction", "air_shock_tube"]
+)
+def test_ader2_stays_physical_on_the_shock_tubes(name):
+    prob = get_problem(name)
+    sol = solve_roe(
+        prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+        x_diaphragm=prob.x_diaphragm, scheme="ader2", limiter="minmod",
+    )
+    assert np.all(sol.rho > 0), name
+    assert np.all(sol.p > 0), name
+
+
+def test_ader2_is_competitive_on_sod():
+    """It should land in the same accuracy band as the TVD scheme.
+
+    Not a claim that one beats the other -- at second order they are
+    comparable, and ADER's advantage is the template, not the constant.
+    """
+    prob = get_problem("sod")
+    exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
+    ader = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+                     scheme="ader2")
+    tvd = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+                    scheme="tvd")
+    e_ader = np.mean(np.abs(ader.rho - exact.rho))
+    e_tvd = np.mean(np.abs(tvd.rho - exact.rho))
+    assert e_ader < 3.0 * e_tvd
+    assert e_ader < 0.01
+
+
+def test_ader2_is_conservative():
+    prob = get_problem("sod")
+    t_end, nx = 0.15, 100
+    sol = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx,
+                    scheme="ader2")
+    from riemann.thermo import primitive_to_conservative
+
+    initial = primitive_to_conservative(
+        np.where((sol.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),
+        prob.gamma,
+    )
+    final = sol.conserved.sum(axis=0) * sol.dx
+    start = initial.sum(axis=0) * sol.dx
+    assert final[0] == pytest.approx(start[0], rel=1e-12)
+    assert final[2] == pytest.approx(start[2], rel=1e-12)
+    impulse = (prob.left[2] - prob.right[2]) * t_end
+    assert final[1] - start[1] == pytest.approx(impulse, rel=1e-10)
+
+
+def test_uniform_flow_is_a_fixed_point_for_ader():
+    w = np.array([1.2, 0.8, 3.4])
+    sol = solve_roe(GAMMA, w, w, 0.3, nx=64, scheme="ader2")
+    assert sol.rho == pytest.approx(np.full(64, w[0]))
+    assert sol.u == pytest.approx(np.full(64, w[1]))
+    assert sol.p == pytest.approx(np.full(64, w[2]))
+
+
+def test_unknown_scheme_is_rejected():
+    with pytest.raises(ValueError, match="unknown scheme"):
+        solve_roe(GAMMA, [1.0, 0.0, 1.0], [0.125, 0.0, 0.1], 0.1, scheme="ader7")
+
+
+def test_solve_field_validates_its_input():
+    x = cell_centres(32)
+    with pytest.raises(ValueError, match=r"shape \(nx, 3\)"):
+        solve_field(GAMMA, np.ones((32, 2)), 0.1)
+    with pytest.raises(ValueError, match="positive density"):
+        bad = acoustic_pulse(x)
+        bad[0, 0] = -1.0
+        solve_field(GAMMA, bad, 0.1)

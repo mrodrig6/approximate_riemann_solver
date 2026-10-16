@@ -12,33 +12,19 @@ The scheme is the conservative one-step update (Toro Sec. 6.2)
 with ``F`` supplied by :func:`riemann.fluxes.interface_fluxes`, which
 selects among the available numerical fluxes.
 
-Bugs fixed relative to the MATLAB original (``plot_roe_eue.m``)
---------------------------------------------------------------
-1. The time step used ``max |u + a|``, which is not the maximum signal speed:
-   the left-going acoustic family travels at ``u - a``, so for ``u < 0`` the
-   fastest wave is missed and the step is too large.  It now uses
-   ``max(|u| + a)`` (Toro Sec. 6.4, where ``S_max`` is so defined).
-2. The last step was not clipped to the output time, so the solution was
-   reported at some ``t > T``, up to one full step late.  ``dt`` is now
-   truncated so the final time is exactly ``T``.
-3. A note on *not* ramping the CFL number.  Toro (Sec. 6.4) suggests reducing
-   the Courant number over the first few steps of a Godunov-type run, because
-   the wave speeds present in the discontinuous initial data under-predict
-   those that appear immediately after.  That advice does **not** transfer to
-   this flux-limited scheme, and an earlier version of this port that did ramp
-   it broke Toro's Test 5.  The reason is visible in the second-order
-   correction of Toro eq. (14.49), whose magnitude is proportional to
-   ``1 - |nu_k|``: as ``nu -> 0`` the correction grows until it exactly cancels
-   the upwind numerical diffusion, and the scheme degenerates to the
-   dissipation-free central scheme.  Shrinking ``dt`` therefore makes this
-   scheme *less* robust, not more.  The step is set purely by the CFL condition
-   and by the output time.
-4. The MATLAB loop simply never updated cells 1, 2, NX-1, NX, which works only
-   as long as no wave reaches the boundary.  Proper transmissive ghost cells
-   (Toro Sec. 6.3) are now applied every step, so the solver stays valid if a
-   wave does exit the domain.
-5. There was no cap on the number of steps and no check for NaN, so a bad
-   input spun an infinite loop in silence.
+Notes on the time step
+----------------------
+The step is set purely by the CFL condition and by the output time; it is
+truncated so the run lands exactly on the requested time rather than
+overshooting it.
+
+Do **not** reduce the Courant number hoping for robustness.  Toro suggests
+that for a first-order Godunov scheme, but it does not transfer to a
+flux-limited one: the second-order correction of Toro eq. (14.49) has
+magnitude proportional to ``1 - |nu_k|``, so as ``nu -> 0`` it grows until it
+exactly cancels the upwind numerical diffusion and the scheme degenerates to
+the dissipation-free central scheme.  A smaller step therefore makes this
+scheme *less* robust.  If a run is unstable, change the limiter or the flux.
 """
 
 from __future__ import annotations
@@ -48,7 +34,9 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ._jit import njit
-from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
+from .ader import ader2_fluxes
+from .fluxes import interface_fluxes
+from .fluxes.registry import FLUX_NAMES, flux_code
 from .limiters import LIMITER_NAMES, limiter_code
 from .thermo import (
     conservative_to_primitive,
@@ -56,7 +44,7 @@ from .thermo import (
     specific_internal_energy,
 )
 
-__all__ = ["RoeSolution", "solve_roe", "N_GHOST"]
+__all__ = ["RoeSolution", "solve_roe", "solve_field", "N_GHOST"]
 
 #: Ghost cells per side.  Two are needed, not one: the flux limiter at the
 #: first interior interface reads the wave strengths of the interface one
@@ -84,8 +72,8 @@ def _apply_transmissive_bc(u_all, n_ghost):
 def _max_signal_speed(u_all, gamma, n_ghost):
     """``S_max = max_i (|u_i| + a_i)`` over the interior cells (Toro Sec. 6.4).
 
-    Using ``|u| + a`` rather than the MATLAB's ``|u + a|`` is what makes this
-    an upper bound on *both* acoustic families, ``u - a`` and ``u + a``.
+    Note ``|u| + a``, not ``|u + a|``: only the former bounds *both* acoustic
+    families, ``u - a`` and ``u + a``, when ``u < 0``.
     """
     n_cells = u_all.shape[0]
     s_max = 0.0
@@ -106,17 +94,20 @@ def _max_signal_speed(u_all, gamma, n_ghost):
 @njit
 def _advance(
     u_all, gamma, dx, dt, n_ghost, flux_code_, limiter_code_, use_entropy_fix,
-    second_order,
+    second_order, use_ader,
 ):
     """One conservative time step (Toro Sec. 6.2, the Godunov update), in place.
 
     Returns the new state array; the interior cells are updated from the
     interface fluxes and the ghost cells are refreshed afterwards.
     """
-    flux = interface_fluxes(
-        u_all, gamma, dx, dt, flux_code_, limiter_code_, use_entropy_fix,
-        second_order,
-    )
+    if use_ader:
+        flux = ader2_fluxes(u_all, gamma, dx, dt, limiter_code_)
+    else:
+        flux = interface_fluxes(
+            u_all, gamma, dx, dt, flux_code_, limiter_code_, use_entropy_fix,
+            second_order,
+        )
     n_cells = u_all.shape[0]
     u_new = u_all.copy()
     lam = dt / dx
@@ -129,18 +120,24 @@ def _advance(
     return u_new
 
 
-def _positivity_message(fcode, steps, t):
+def _positivity_message(fcode, steps, t, scheme="tvd"):
     """Explain a positivity failure in terms of the flux that produced it.
 
     Which fluxes can fail, and why, differs enough between them that one
     generic message would be useless.  Keeping this out of the hot path means
     it costs nothing until something actually goes wrong.
     """
-    name = FLUX_NAMES[fcode]
+    name = "ader2" if scheme == "ader2" else FLUX_NAMES[fcode]
     lines = [
-        f"flux={name!r} produced a non-physical state (negative pressure or "
+        f"{name} produced a non-physical state (negative pressure or "
         f"density) at step {steps}, t = {t:.6g}.",
     ]
+    if scheme == "ader2":
+        lines.append(
+            "ADER2 reconstructs a linear polynomial in each cell; on a very "
+            "strong jump the reconstruction itself can go non-physical.  Try "
+            "limiter='minmod', a smaller CFL number, or scheme='tvd'."
+        )
     if name == "roe":
         lines.append(
             "Roe's linearisation does not preserve positivity of internal "
@@ -183,8 +180,11 @@ class RoeSolution:
         Number of time steps taken.
     gamma, cfl, dx : float
         Run parameters, kept for reproducibility and for the plot labels.
+    scheme : str
+        ``"tvd"`` or ``"ader2"``.
     flux : str
-        Name of the numerical flux used.
+        Name of the numerical flux used (``"ader2"`` for the ADER scheme,
+        which uses no separate numerical flux).
     limiter : str
         Name of the flux limiter used.
     second_order, entropy_fix : bool
@@ -201,6 +201,7 @@ class RoeSolution:
     gamma: float
     cfl: float
     dx: float
+    scheme: str
     flux: str
     limiter: str
     second_order: bool
@@ -216,11 +217,14 @@ class RoeSolution:
         "rusanov": "Rusanov",
         "lax_friedrichs": "Lax-Friedrichs",
         "ausmup": "AUSM+-up",
+        "ader2": "ADER2",
     }
 
     @property
     def label(self):
         """A short human-readable description, suitable for a plot legend."""
+        if self.scheme == "ader2":
+            return f"ADER2, {self.limiter}"
         name = self._PRETTY.get(self.flux, self.flux)
         if self.second_order:
             return f"{name}, 2nd order, {self.limiter}"
@@ -239,6 +243,7 @@ def solve_roe(
     cfl=0.9,
     flux="roe",
     limiter="superbee",
+    scheme="tvd",
     second_order=True,
     entropy_fix=True,
     max_steps=200_000,
@@ -271,9 +276,15 @@ def solve_roe(
         See :mod:`riemann.fluxes`.  ``"hllc"`` is the best general-purpose
         choice; ``"roe"`` is the default for backwards compatibility.
     limiter : str or int
-        Flux limiter: ``"superbee"``, ``"minmod"``, ``"vanleer"``,
-        ``"vanalbada"`` or ``"none"``.  Integers 0/1 map to superbee/minmod to
-        match the MATLAB ``flim`` flag.
+        Limiter: ``"superbee"``, ``"minmod"``, ``"vanleer"``, ``"vanalbada"``
+        or ``"none"``.  It limits the antidiffusive flux correction under
+        ``scheme="tvd"`` and the reconstruction slope under
+        ``scheme="ader2"``.
+    scheme : str
+        ``"tvd"`` (default) for the flux-limited second-order scheme, or
+        ``"ader2"`` for the one-step ADER scheme of :mod:`riemann.ader`.
+        ADER supplies its own interface state, so ``flux``, ``entropy_fix``
+        and ``second_order`` do not apply to it.
     second_order : bool
         Include the flux-limited second-order correction.  Setting this
         ``False`` gives the plain first-order Roe scheme, which is useful for
@@ -289,32 +300,90 @@ def solve_roe(
     -------
     RoeSolution
     """
-    if t_end <= 0.0:
-        raise ValueError("t_end must be positive")
-    if nx < 4:
-        raise ValueError("nx must be at least 4")
-    if not 0.0 < cfl <= 1.0:
-        raise ValueError("cfl must lie in (0, 1]")
-
-    code = limiter_code(limiter)
-    fcode = flux_code(flux)
-    gamma = float(gamma)
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
     if w_l[0] <= 0 or w_l[2] <= 0 or w_r[0] <= 0 or w_r[2] <= 0:
         raise ValueError("initial states must have positive density and pressure")
+    if nx < 4:
+        raise ValueError("nx must be at least 4")
+
+    dx = (x_right - x_left) / nx
+    x = x_left + dx * (np.arange(nx) + 0.5)
+    w_init = np.where((x < x_diaphragm)[:, None], w_l[None, :], w_r[None, :])
+
+    return solve_field(
+        gamma, w_init, t_end,
+        x_left=x_left, x_right=x_right, cfl=cfl, flux=flux, limiter=limiter,
+        scheme=scheme, second_order=second_order, entropy_fix=entropy_fix,
+        max_steps=max_steps,
+    )
+
+
+def solve_field(
+    gamma,
+    w_init,
+    t_end,
+    x_left=0.0,
+    x_right=1.0,
+    cfl=0.9,
+    flux="roe",
+    limiter="superbee",
+    scheme="tvd",
+    second_order=True,
+    entropy_fix=True,
+    max_steps=200_000,
+):
+    """Advance an arbitrary initial field, not just two constant states.
+
+    :func:`solve_roe` is a thin wrapper around this: it builds the
+    two-state field and hands it over.  Working with a field directly is what
+    makes an order-of-accuracy study possible, since measuring the formal
+    order of a scheme needs *smooth* initial data -- on a discontinuity every
+    scheme is first order in :math:`L_1` whatever its formal order.
+
+    Parameters
+    ----------
+    gamma : float
+        Ratio of specific heats.
+    w_init : array_like, shape (nx, 3)
+        Primitive states ``[rho, u, p]`` at the cell centres of a uniform
+        grid spanning ``[x_left, x_right]``.  ``nx`` is taken from its shape.
+    t_end, x_left, x_right, cfl, flux, limiter, scheme, second_order,
+    entropy_fix, max_steps
+        As for :func:`solve_roe`.
+
+    Returns
+    -------
+    RoeSolution
+    """
+    w_init = np.atleast_2d(np.asarray(w_init, dtype=float))
+    if w_init.ndim != 2 or w_init.shape[1] != 3:
+        raise ValueError("w_init must have shape (nx, 3)")
+    nx = w_init.shape[0]
+    if nx < 4:
+        raise ValueError("nx must be at least 4")
+    if t_end <= 0.0:
+        raise ValueError("t_end must be positive")
+    if not 0.0 < cfl <= 1.0:
+        raise ValueError("cfl must lie in (0, 1]")
+    if np.any(w_init[:, 0] <= 0.0) or np.any(w_init[:, 2] <= 0.0):
+        raise ValueError("initial field must have positive density and pressure")
+    scheme = str(scheme).strip().lower()
+    if scheme not in ("tvd", "ader2", "ader"):
+        raise ValueError(f"unknown scheme {scheme!r}; choose 'tvd' or 'ader2'")
+    use_ader = scheme in ("ader2", "ader")
+
+    code = limiter_code(limiter)
+    fcode = flux_code(flux)
+    gamma = float(gamma)
 
     dx = (x_right - x_left) / nx
     x = x_left + dx * (np.arange(nx) + 0.5)
 
     # Allocate with ghost cells and set the initial condition.
     u_all = np.empty((nx + 2 * N_GHOST, 3))
-    u_left = primitive_to_conservative(w_l, gamma)
-    u_right = primitive_to_conservative(w_r, gamma)
     interior = slice(N_GHOST, N_GHOST + nx)
-    u_all[interior] = np.where(
-        (x < x_diaphragm)[:, None], u_left[None, :], u_right[None, :]
-    )
+    u_all[interior] = primitive_to_conservative(w_init, gamma)
     _apply_transmissive_bc(u_all, N_GHOST)
 
     t = 0.0
@@ -323,7 +392,9 @@ def solve_roe(
         s_max = _max_signal_speed(u_all, gamma, N_GHOST)
         if s_max <= 0.0:
             raise FloatingPointError(
-                _positivity_message(fcode, steps, t)
+                _positivity_message(
+                    fcode, steps, t, scheme="ader2" if use_ader else "tvd"
+                )
             )
         dt = cfl * dx / s_max
 
@@ -333,7 +404,7 @@ def solve_roe(
 
         u_all = _advance(
             u_all, gamma, dx, dt, N_GHOST, fcode, code, entropy_fix,
-            second_order,
+            second_order, use_ader,
         )
         if not np.all(np.isfinite(u_all)):
             raise FloatingPointError(
@@ -363,7 +434,8 @@ def solve_roe(
         gamma=gamma,
         cfl=float(cfl),
         dx=float(dx),
-        flux=FLUX_NAMES[fcode],
+        scheme="ader2" if use_ader else "tvd",
+        flux="ader2" if use_ader else FLUX_NAMES[fcode],
         limiter=LIMITER_NAMES[code],
         second_order=bool(second_order),
         entropy_fix=bool(entropy_fix),

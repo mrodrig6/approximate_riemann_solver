@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Simplest possible example: Sod's shock tube, exact vs. Roe.
 
-This is the direct replacement for the MATLAB ``main.m`` driver.  Run it from
-the repository root::
+Run it from the repository root::
 
     python examples/sod_shock_tube.py
 
@@ -24,8 +23,7 @@ import numpy as np
 from riemann import plot_comparison, save_figure, solve_exact, solve_roe
 
 # ---------------------------------------------------------------------------
-# Problem definition.  These are exactly the parameters of the MATLAB main.m,
-# only with names instead of positional arguments.
+# Problem definition.
 # ---------------------------------------------------------------------------
 gamma = 1.4                     # ratio of specific heats
 w_left = [1.000, 0.0, 1.0]      # [rho, u, p] to the left of the diaphragm
