@@ -21,7 +21,7 @@ system.
 ### [1. The Riemann problem for the Euler equations](formulation.md)
 *Toro Chapters 3 and 4.* The governing equations and their closure; the
 structure of the Riemann solution (three waves, two star states); the
-reduction to the single scalar equation $f(p_{*}) = 0$; why Newton–Raphson
+reduction to the single scalar equation $f(p_{\ast}) = 0$; why Newton–Raphson
 always converges and how the initial guess is chosen; self-similar sampling of
 the wave fan; the vacuum condition.
 
@@ -73,12 +73,12 @@ dimensional (SI) shock tube; what the test suite covers.
 | $E, e$ | total energy per unit volume; specific internal energy $e = p/((\gamma-1)\rho)$ |
 | $a, H$ | sound speed $\sqrt{\gamma p/\rho}$; specific total enthalpy $(E+p)/\rho$ |
 | $\gamma$ | ratio of specific heats (1.4 for air) |
-| $p_{*}, u_{*}$ | star-region pressure and velocity |
+| $p_{\ast}, u_{\ast}$ | star-region pressure and velocity |
 | $\tilde{u}, \tilde{H}, \tilde{a}$ | Roe-averaged velocity, total enthalpy, sound speed |
 | $\tilde{\lambda}_{k}, \tilde{\mathbf{K}}_{k}, \tilde{\alpha}_{k}$ | Roe eigenvalue, right eigenvector and wave strength of family $k$ |
 | $\nu_{k}$ | Courant number $\tilde{\lambda}_{k}\Delta t/\Delta x$ of family $k$ |
 | $\phi(r)$ | flux limiter |
-| $S_L, S_R, S_*$ | HLL/HLLC left, right and contact wave speeds |
+| $S_L, S_R, S_{\ast}$ | HLL/HLLC left, right and contact wave speeds |
 | $M^{\pm}_{(4)}, P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
 | $K_p, K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
 | $h, a = \sqrt{gh}$ | shallow-water depth and gravity-wave celerity |
@@ -136,6 +136,11 @@ of which corresponds to something that does not render:
   reference such as "Toro eq. (4.5)" goes in the surrounding prose.
 - **No spacing macros** (`\,`, `\;`, `\!`). They are purely cosmetic and
   every one is another backslash for the parser to eat.
+- **No literal `*` inside maths.** GitHub pairs `*` as emphasis *before* the
+  maths span is handed to the renderer, and unlike `_` it pairs intraword, so
+  two asterisks anywhere in the same paragraph swallow everything between
+  them into an `<em>`. Star-region quantities are therefore written
+  $p_{\ast}$, $\mathbf{U}^{\ast}_{L}$ and so on, never `p_{*}`.
 - **No custom macros**, and nothing needing a LaTeX package.
 
 Figure labels are a separate matter: they use matplotlib's built-in

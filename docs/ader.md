@@ -46,7 +46,7 @@ boundary-extrapolated values $U_i \pm s_i/2$. At interface $i+1/2$, with
 $U_L = U_i + s_i/2$ and $U_R = U_{i+1} - s_{i+1}/2$:
 
 **Step 1 — the leading term.** Solve the classical Riemann problem
-$(U_L, U_R)$ and take the state on the interface, $U^{*}(0)$. This is the
+$(U_L, U_R)$ and take the state on the interface, $U^{\ast}(0)$. This is the
 Godunov state, and on its own it is what a first-order scheme would use.
 Here it comes from the HLLC wave model, which is cheap, positivity-preserving
 and exact at a contact.
@@ -54,11 +54,11 @@ and exact at a contact.
 **Step 2 — the derivative Riemann problem.** The spatial derivative is itself
 discontinuous across the interface, with values $s_i/\Delta x$ and
 $s_{i+1}/\Delta x$ either side. Evolve it with the system linearised about
-$U^{*}(0)$, and take the value on the interface — which means projecting each
-side onto the characteristic fields of $A(U^{*}(0))$ and picking the upwind
+$U^{\ast}(0)$, and take the value on the interface — which means projecting each
+side onto the characteristic fields of $A(U^{\ast}(0))$ and picking the upwind
 component, field by field:
 
-$$\left(\frac{\partial U}{\partial x}\right)^{*} = \sum_{k} \beta_{k} K_{k},$$
+$$\left(\frac{\partial U}{\partial x}\right)^{\ast} = \sum_{k} \beta_{k} K_{k},$$
 
 where $\beta_{k} = \alpha_{k}^{L}$ when $\lambda_{k} > 0$ and
 $\beta_{k} = \alpha_{k}^{R}$ otherwise, with $\alpha_{k}^{L}$ and
@@ -68,7 +68,7 @@ derivatives.
 **Step 3 — Cauchy–Kovalewski.** The governing equation converts the time
 derivative into the space derivative:
 
-$$\frac{\partial U}{\partial t} = -A(U)\frac{\partial U}{\partial x} \quad \Longrightarrow \quad \left(\frac{\partial U}{\partial t}\right)^{*} = -\sum_{k} \lambda_{k}\beta_{k}K_{k}.$$
+$$\frac{\partial U}{\partial t} = -A(U)\frac{\partial U}{\partial x} \quad \Longrightarrow \quad \left(\frac{\partial U}{\partial t}\right)^{\ast} = -\sum_{k} \lambda_{k}\beta_{k}K_{k}.$$
 
 No Jacobian is ever formed: the eigen-decomposition that step 2 already needs
 supplies the matrix–vector product directly.
@@ -76,11 +76,11 @@ supplies the matrix–vector product directly.
 **Step 4 — the flux.** The interface state is now linear in time within the
 step, so the midpoint rule integrates the flux to second order:
 
-$$F_{i+1/2} = F\left(U^{*}(0) + \tfrac{1}{2}\Delta t\left(\frac{\partial U}{\partial t}\right)^{*}\right).$$
+$$F_{i+1/2} = F\left(U^{\ast}(0) + \tfrac{1}{2}\Delta t\left(\frac{\partial U}{\partial t}\right)^{\ast}\right).$$
 
 Note what does **not** appear: no numerical flux function. ADER evaluates the
 *physical* flux at a state. The only Riemann solve is the one producing
-$U^{*}(0)$, which is why `flux=`, `entropy_fix=` and `second_order=` have no
+$U^{\ast}(0)$, which is why `flux=`, `entropy_fix=` and `second_order=` have no
 effect under `scheme="ader2"`.
 
 ---

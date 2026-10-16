@@ -91,31 +91,31 @@ constant states:
 The two states between the outer waves are the **star region**. Across the
 contact, $p$ and $u$ are continuous:
 
-$$p^{*}_{L} = p^{*}_{R} \equiv p_{*}, \qquad u^{*}_{L} = u^{*}_{R} \equiv u_{*}.$$
+$$p^{\ast}_{L} = p^{\ast}_{R} \equiv p_{\ast}, \qquad u^{\ast}_{L} = u^{\ast}_{R} \equiv u_{\ast}.$$
 
-Density is *not*: $\rho^{*}_{L} \ne \rho^{*}_{R}$ in general. This is the single
+Density is *not*: $\rho^{\ast}_{L} \ne \rho^{\ast}_{R}$ in general. This is the single
 most important fact for understanding the numerical results — the contact
 shows up in $\rho$ and $e$ but is invisible in $u$ and $p$, which is why the
 four-panel figures in [validation.md](validation.md) always plot all four.
 
-There are four possible wave patterns, depending on how $p_{*}$ compares with
+There are four possible wave patterns, depending on how $p_{\ast}$ compares with
 $p_L$ and $p_R$:
 
-| $p_{*}$ versus the data | Left wave | Right wave |
+| $p_{\ast}$ versus the data | Left wave | Right wave |
 | --- | --- | --- |
-| $p_{*} > p_L$ and $p_{*} > p_R$ | shock | shock |
-| $p_{*} \le p_L$ and $p_{*} > p_R$ | rarefaction | shock |
-| $p_{*} > p_L$ and $p_{*} \le p_R$ | shock | rarefaction |
-| $p_{*} \le p_L$ and $p_{*} \le p_R$ | rarefaction | rarefaction |
+| $p_{\ast} > p_L$ and $p_{\ast} > p_R$ | shock | shock |
+| $p_{\ast} \le p_L$ and $p_{\ast} > p_R$ | rarefaction | shock |
+| $p_{\ast} > p_L$ and $p_{\ast} \le p_R$ | shock | rarefaction |
+| $p_{\ast} \le p_L$ and $p_{\ast} \le p_R$ | rarefaction | rarefaction |
 
 ---
 
 ## 3. Reducing the problem to a single scalar equation
 
 This is the key step (Toro §4.2). Both outer waves relate the star-region
-pressure to the star-region velocity. Eliminating $u_{*}$ between the two
+pressure to the star-region velocity. Eliminating $u_{\ast}$ between the two
 relations leaves one nonlinear algebraic equation in the single unknown
-$p_{*}$:
+$p_{\ast}$:
 
 $$f(p) \equiv f_{L}(p, \mathbf{W}_{L}) + f_{R}(p, \mathbf{W}_{R}) + (u_{R} - u_{L}) = 0,$$
 
@@ -137,9 +137,9 @@ Riemann invariants (Toro eq. 4.7):
 
 $$f_{K}(p) = \frac{2 a_{K}}{\gamma - 1}\left[\left(\frac{p}{p_{K}}\right)^{\frac{\gamma - 1}{2\gamma}} - 1\right].$$
 
-Once $p_{*}$ is known, the star velocity follows directly (Toro eq. 4.9):
+Once $p_{\ast}$ is known, the star velocity follows directly (Toro eq. 4.9):
 
-$$u_{*} = \tfrac{1}{2}(u_{L} + u_{R}) + \tfrac{1}{2}\left[f_{R}(p_{*}) - f_{L}(p_{*})\right].$$
+$$u_{\ast} = \tfrac{1}{2}(u_{L} + u_{R}) + \tfrac{1}{2}\left[f_{R}(p_{\ast}) - f_{L}(p_{\ast})\right].$$
 
 ### Why Newton–Raphson always works here
 
@@ -190,30 +190,30 @@ hunt for a root that is not there.
 
 ## 4. Sampling the solution
 
-With $p_{*}$ and $u_{*}$ known, every other quantity follows in closed form,
+With $p_{\ast}$ and $u_{\ast}$ known, every other quantity follows in closed form,
 and the solution at any $(x, t)$ is obtained by evaluating it at
 $s = x/t$ (Toro §4.5). The code partitions the whole $s$ axis without gaps:
-first by the sign of $s - u_{*}$ (which side of the contact), then by the wave
+first by the sign of $s - u_{\ast}$ (which side of the contact), then by the wave
 type on that side.
 
 **Across a shock** (take the left wave; the right is the mirror image), the
 Rankine–Hugoniot relations give the post-shock density (Toro eq. 4.19) and
 shock speed (Toro eq. 4.20):
 
-$$\rho^{*}_{L} = \rho_{L} \frac{\frac{p_{*}}{p_{L}} + \frac{\gamma - 1}{\gamma + 1}}{\frac{\gamma - 1}{\gamma + 1}\frac{p_{*}}{p_{L}} + 1},$$
+$$\rho^{\ast}_{L} = \rho_{L} \frac{\frac{p_{\ast}}{p_{L}} + \frac{\gamma - 1}{\gamma + 1}}{\frac{\gamma - 1}{\gamma + 1}\frac{p_{\ast}}{p_{L}} + 1},$$
 
-$$S_{L} = u_{L} - a_{L}\left[\frac{\gamma + 1}{2\gamma}\frac{p_{*}}{p_{L}} + \frac{\gamma - 1}{2\gamma}\right]^{1/2}.$$
+$$S_{L} = u_{L} - a_{L}\left[\frac{\gamma + 1}{2\gamma}\frac{p_{\ast}}{p_{L}} + \frac{\gamma - 1}{2\gamma}\right]^{1/2}.$$
 
 The shock is a single discontinuity: the state is $\mathbf{W}_L$ for
 $s < S_L$ and the star state for $s > S_L$.
 
 **Across a rarefaction**, the flow is isentropic, so
 
-$$\rho^{*}_{L} = \rho_{L}\left(\frac{p_{*}}{p_{L}}\right)^{1/\gamma}, \qquad a^{*}_{L} = a_{L}\left(\frac{p_{*}}{p_{L}}\right)^{\frac{\gamma - 1}{2\gamma}}.$$
+$$\rho^{\ast}_{L} = \rho_{L}\left(\frac{p_{\ast}}{p_{L}}\right)^{1/\gamma}, \qquad a^{\ast}_{L} = a_{L}\left(\frac{p_{\ast}}{p_{L}}\right)^{\frac{\gamma - 1}{2\gamma}}.$$
 
 The fan occupies a wedge bounded by its head and tail characteristics,
 
-$$S_{HL} = u_{L} - a_{L}, \qquad S_{TL} = u_{*} - a^{*}_{L},$$
+$$S_{HL} = u_{L} - a_{L}, \qquad S_{TL} = u_{\ast} - a^{\ast}_{L},$$
 
 and *inside* the fan the generalised Riemann invariants give the profile
 explicitly (Toro eq. 4.24). Writing
@@ -238,7 +238,7 @@ precisely where Roe's approximate solver needs an entropy fix — see
 | Pressure function $f(p)$ | Toro 4.5–4.7 | `exact.pressure_function` |
 | Its derivative | Toro 4.37 | `exact.pressure_function_derivative` |
 | Adaptive initial guess | Toro §9.5 | `exact.initial_pressure_guess` |
-| Newton iteration for $p_{*}$ | Toro §4.3.2 | `exact.solve_star_pressure` |
+| Newton iteration for $p_{\ast}$ | Toro §4.3.2 | `exact.solve_star_pressure` |
 | Vacuum check | Toro 4.40 | `exact._check_vacuum` |
 | Self-similar sampling | Toro §4.5 | `exact._sample_one` |
 

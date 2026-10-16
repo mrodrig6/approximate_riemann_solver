@@ -69,8 +69,8 @@ wetting front.
 ## 3. The exact solver
 
 The same construction as the Euler exact solver, with depth in place of
-pressure. Both waves pin the middle state, and eliminating $u_{*}$ leaves one
-scalar equation in $h_{*}$:
+pressure. Both waves pin the middle state, and eliminating $u_{\ast}$ leaves one
+scalar equation in $h_{\ast}$:
 
 $$f(h) = f_{L}(h, h_{L}) + f_{R}(h, h_{R}) + (u_{R} - u_{L}) = 0,$$
 

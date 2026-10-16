@@ -92,15 +92,15 @@ does* — 8 cells against 2 on Sod at 100 cells.
 HLLC restores the middle wave. Requiring pressure and normal velocity to be
 continuous across it gives the contact speed (Toro eq. 10.37)
 
-$$S_* = \frac{p_R - p_L + \rho_L u_L\left(S_L - u_L\right) - \rho_R u_R\left(S_R - u_R\right)}{\rho_L\left(S_L - u_L\right) - \rho_R\left(S_R - u_R\right)},$$
+$$S_{\ast} = \frac{p_R - p_L + \rho_L u_L\left(S_L - u_L\right) - \rho_R u_R\left(S_R - u_R\right)}{\rho_L\left(S_L - u_L\right) - \rho_R\left(S_R - u_R\right)},$$
 
 and the Rankine–Hugoniot conditions across the outer waves give the two star
 states (Toro eq. 10.39), for $K \in \{L, R\}$:
 
-$$\mathbf{U}^{*}_{K} = \rho_K \frac{S_K - u_K}{S_K - S_*}\left[1, S_*, \frac{E_K}{\rho_K} + \left(S_* - u_K\right)\left(S_* + \frac{p_K}{\rho_K\left(S_K - u_K\right)}\right)\right]^{T},$$
+$$\mathbf{U}^{\ast}_{K} = \rho_K \frac{S_K - u_K}{S_K - S_{\ast}}\left[1, S_{\ast}, \frac{E_K}{\rho_K} + \left(S_{\ast} - u_K\right)\left(S_{\ast} + \frac{p_K}{\rho_K\left(S_K - u_K\right)}\right)\right]^{T},$$
 
-with $\mathbf{F}^{*}_{K} = \mathbf{F}_K + S_K\left(\mathbf{U}^{*}_{K} - \mathbf{U}_K\right)$.
-The flux is then selected by the sign of $S_L$, $S_*$ and $S_R$.
+with $\mathbf{F}^{\ast}_{K} = \mathbf{F}_K + S_K\left(\mathbf{U}^{\ast}_{K} - \mathbf{U}_K\right)$.
+The flux is then selected by the sign of $S_L$, $S_{\ast}$ and $S_R$.
 
 **This is the best general-purpose choice in this code.** It resolves contacts
 essentially as well as Roe, keeps HLL's positivity, needs no entropy fix, and
@@ -252,7 +252,7 @@ flux, and resolves the long-standing roadmap item in this repository:
 
 Density and velocity are captured well. The overshoot in the specific
 internal energy near $x = 0.5$ is the known difficulty of this test — the
-star region is at $p_* \approx 0.0019$, so $e = p / ((\gamma - 1)\rho)$ is a
+star region is at $p_{\ast} \approx 0.0019$, so $e = p / ((\gamma - 1)\rho)$ is a
 ratio of two very small numbers — and it appears for every scheme, not only
 these two.
 
