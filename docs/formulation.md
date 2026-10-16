@@ -16,11 +16,11 @@ $$\frac{\partial \mathbf{U}}{\partial t} + \frac{\partial \mathbf{F}(\mathbf{U})
 
 with the vector of conserved variables
 
-$$\mathbf{U} = [\rho,\ \rho u,\ E]^{T}$$
+$$\mathbf{U} = [\rho, \rho u, E]^{T}$$
 
 and the flux vector
 
-$$\mathbf{F}(\mathbf{U}) = [\rho u,\ \rho u^{2} + p,\ u(E + p)]^{T}.$$
+$$\mathbf{F}(\mathbf{U}) = [\rho u, \rho u^{2} + p, u(E + p)]^{T}.$$
 
 Here $\rho$ is density, $u$ velocity, $p$ pressure and $E$ the **total** energy
 per unit volume. The system has three equations and four unknowns, so it needs
@@ -117,7 +117,9 @@ pressure to the star-region velocity. Eliminating $u_{*}$ between the two
 relations leaves one nonlinear algebraic equation in the single unknown
 $p_{*}$:
 
-$$f(p) \equiv f_{L}(p, \mathbf{W}_{L}) + f_{R}(p, \mathbf{W}_{R}) + (u_{R} - u_{L}) = 0. \tag{Toro 4.5}$$
+$$f(p) \equiv f_{L}(p, \mathbf{W}_{L}) + f_{R}(p, \mathbf{W}_{R}) + (u_{R} - u_{L}) = 0,$$
+
+which is Toro eq. (4.5).
 
 The functions $f_{K}$, for $K \in \{L, R\}$, each have two branches.
 
@@ -128,7 +130,7 @@ $$f_{K}(p) = (p - p_{K})\left[\frac{A_{K}}{p + B_{K}}\right]^{1/2},$$
 
 with the data constants
 
-$$A_{K} = \frac{2}{(\gamma + 1)\rho_{K}}, \qquad B_{K} = \frac{\gamma - 1}{\gamma + 1}\, p_{K}.$$
+$$A_{K} = \frac{2}{(\gamma + 1)\rho_{K}}, \qquad B_{K} = \frac{\gamma - 1}{\gamma + 1} p_{K}.$$
 
 **Rarefaction branch** ($p \le p_{K}$), from isentropy plus the generalised
 Riemann invariants (Toro eq. 4.7):
@@ -164,14 +166,15 @@ selects among three *non-iterative* approximate solvers according to how
 strong the waves are:
 
 - **PVRS** (primitive-variable Riemann solver, Toro eq. 9.20) when the
-  pressure ratio is mild — the linearised estimate
-
-  $$p_{PV} = \tfrac{1}{2}(p_{L} + p_{R}) - \tfrac{1}{8}(u_{R} - u_{L})(\rho_{L} + \rho_{R})(a_{L} + a_{R}).$$
-
+  pressure ratio is mild — the linearised estimate given below.
 - **Two-rarefaction** (Toro eq. 9.32) when $p_{PV}$ falls below
   $\min(p_L, p_R)$. This one is *exact* when both waves really are
   rarefactions, which is why Toro's Test 2 converges in a single Newton step.
 - **Two-shock** (Toro eq. 9.42) when $p_{PV}$ exceeds $\max(p_L, p_R)$.
+
+The PVRS estimate itself is
+
+$$p_{PV} = \tfrac{1}{2}(p_{L} + p_{R}) - \tfrac{1}{8}(u_{R} - u_{L})(\rho_{L} + \rho_{R})(a_{L} + a_{R}).$$
 
 ### Vacuum
 
@@ -197,7 +200,7 @@ type on that side.
 Rankine–Hugoniot relations give the post-shock density (Toro eq. 4.19) and
 shock speed (Toro eq. 4.20):
 
-$$\rho^{*}_{L} = \rho_{L}\,\frac{\frac{p_{*}}{p_{L}} + \frac{\gamma - 1}{\gamma + 1}}{\frac{\gamma - 1}{\gamma + 1}\frac{p_{*}}{p_{L}} + 1},$$
+$$\rho^{*}_{L} = \rho_{L} \frac{\frac{p_{*}}{p_{L}} + \frac{\gamma - 1}{\gamma + 1}}{\frac{\gamma - 1}{\gamma + 1}\frac{p_{*}}{p_{L}} + 1},$$
 
 $$S_{L} = u_{L} - a_{L}\left[\frac{\gamma + 1}{2\gamma}\frac{p_{*}}{p_{L}} + \frac{\gamma - 1}{2\gamma}\right]^{1/2}.$$
 
@@ -216,7 +219,7 @@ and *inside* the fan the generalised Riemann invariants give the profile
 explicitly (Toro eq. 4.24). Writing
 $\Phi = \frac{2}{\gamma + 1} + \frac{\gamma - 1}{(\gamma + 1)a_{L}}(u_{L} - s)$:
 
-$$\rho = \rho_{L}\,\Phi^{\frac{2}{\gamma - 1}}, \qquad p = p_{L}\,\Phi^{\frac{2\gamma}{\gamma - 1}},$$
+$$\rho = \rho_{L} \Phi^{\frac{2}{\gamma - 1}}, \qquad p = p_{L} \Phi^{\frac{2\gamma}{\gamma - 1}},$$
 
 $$u = \frac{2}{\gamma + 1}\left[a_{L} + \frac{\gamma - 1}{2}u_{L} + s\right].$$
 

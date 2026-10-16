@@ -16,12 +16,12 @@ are set, and how the scheme is lifted from first to second order.
 Whichever flux of [flux-functions.md](flux-functions.md) is chosen, it enters
 the same explicit conservative update (Toro Sec. 6.2):
 
-$$\mathbf{U}_{i}^{\,n+1} = \mathbf{U}_{i}^{\,n} - \frac{\Delta t}{\Delta x}\left[\mathbf{F}_{i+1/2} - \mathbf{F}_{i-1/2}\right].$$
+$$\mathbf{U}_{i}^{ n+1} = \mathbf{U}_{i}^{ n} - \frac{\Delta t}{\Delta x}\left[\mathbf{F}_{i+1/2} - \mathbf{F}_{i-1/2}\right].$$
 
 **Time step.** Set by the CFL condition (Toro §6.4) from the maximum signal
 speed on the grid,
 
-$$S_{\max} = \max_{i}\left(|u_{i}| + a_{i}\right), \qquad \Delta t = \frac{C_{\text{cfl}}\,\Delta x}{S_{\max}},$$
+$$S_{\max} = \max_{i}\left(|u_{i}| + a_{i}\right), \qquad \Delta t = \frac{C_{\text{cfl}} \Delta x}{S_{\max}},$$
 
 truncated so the run lands exactly on the output time rather than
 overshooting it. Note $|u| + a$, not $|u + a|$: only the former bounds both
@@ -59,11 +59,11 @@ Write the second-order flux as the first-order (upwind) flux plus a
 correction, and multiply the correction by a limiter. Applied wave by wave to
 the Roe decomposition, the interface flux becomes (Toro eq. 14.49):
 
-$$\mathbf{F}_{i+1/2} = \mathbf{F}^{\text{Roe}}_{i+1/2} + \sum_{k=1}^{3} \tfrac{1}{2}\,\tilde{\lambda}_{k}\left[\mathrm{sign}(\nu_{k}) - \nu_{k}\right]\phi(r_{k})\,\tilde{\alpha}_{k}\,\tilde{\mathbf{K}}_{k},$$
+$$\mathbf{F}_{i+1/2} = \mathbf{F}^{\text{Roe}}_{i+1/2} + \sum_{k=1}^{3} \tfrac{1}{2} \tilde{\lambda}_{k}\left[\mathrm{sign}(\nu_{k}) - \nu_{k}\right]\phi(r_{k}) \tilde{\alpha}_{k} \tilde{\mathbf{K}}_{k},$$
 
 where $\nu_{k}$ is the Courant number of wave family $k$,
 
-$$\nu_{k} = \frac{\tilde{\lambda}_{k}\,\Delta t}{\Delta x}.$$
+$$\nu_{k} = \frac{\tilde{\lambda}_{k} \Delta t}{\Delta x}.$$
 
 Two things are worth noticing about the weight
 $\tfrac{1}{2}\tilde{\lambda}_{k}[\mathrm{sign}(\nu_{k}) - \nu_{k}]$.
@@ -114,17 +114,17 @@ against a zero denominator rather than being allowed to produce `Inf`.
 
 A limiter is TVD if it lies inside **Sweby's region**,
 
-$$0 \le \phi(r) \le \min(2r,\,2), \qquad \phi(r) = 0 \ \text{for}\ r \le 0,$$
+$$0 \le \phi(r) \le \min(2r, 2), \qquad \phi(r) = 0 \text{for} r \le 0,$$
 
 and it recovers second-order accuracy only if $\phi(1) = 1$. Both properties
 are checked for every limiter in `tests/test_roe.py`.
 
 | Name | $\phi(r)$ for $r > 0$ | Character |
 | --- | --- | --- |
-| `superbee` | $\max\left[\min(1, 2r),\ \min(r, 2)\right]$ | The most *compressive* TVD limiter — it sits on the upper edge of Sweby's region. Keeps contacts sharpest; can mildly steepen smooth profiles into staircases. |
+| `superbee` | $\max\left[\min(1, 2r), \min(r, 2)\right]$ | The most *compressive* TVD limiter — it sits on the upper edge of Sweby's region. Keeps contacts sharpest; can mildly steepen smooth profiles into staircases. |
 | `minmod` | $\min(1, r)$ | The most *diffusive* TVD limiter — the lower edge of the region. Smooth and very robust, but noticeably smeared. |
-| `vanleer` | $\dfrac{2r}{1 + r}$ | Smooth and differentiable, mid-region. A good default when neither extreme is wanted. |
-| `vanalbada` | $\dfrac{r(1 + r)}{1 + r^{2}}$ | Smooth, approaches 1 quickly near $r = 1$. |
+| `vanleer` | $\frac{2r}{1 + r}$ | Smooth and differentiable, mid-region. A good default when neither extreme is wanted. |
+| `vanalbada` | $\frac{r(1 + r)}{1 + r^{2}}$ | Smooth, approaches 1 quickly near $r = 1$. |
 | `none` | $1$ | **Not** TVD — raw Lax–Wendroff. Provided deliberately so the oscillations it produces can be demonstrated. |
 
 The practical difference is large and is quantified in

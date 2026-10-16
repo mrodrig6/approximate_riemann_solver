@@ -69,19 +69,19 @@ dimensional (SI) shock tube; what the test suite covers.
 
 | Symbol | Meaning |
 | --- | --- |
-| $\rho,\ u,\ p$ | density, velocity, pressure — the primitive state $\mathbf{W}$ |
-| $E,\ e$ | total energy per unit volume; specific internal energy $e = p/((\gamma-1)\rho)$ |
-| $a,\ H$ | sound speed $\sqrt{\gamma p/\rho}$; specific total enthalpy $(E+p)/\rho$ |
+| $\rho, u, p$ | density, velocity, pressure — the primitive state $\mathbf{W}$ |
+| $E, e$ | total energy per unit volume; specific internal energy $e = p/((\gamma-1)\rho)$ |
+| $a, H$ | sound speed $\sqrt{\gamma p/\rho}$; specific total enthalpy $(E+p)/\rho$ |
 | $\gamma$ | ratio of specific heats (1.4 for air) |
-| $p_{*},\ u_{*}$ | star-region pressure and velocity |
-| $\tilde{u},\ \tilde{H},\ \tilde{a}$ | Roe-averaged velocity, total enthalpy, sound speed |
-| $\tilde{\lambda}_{k},\ \tilde{\mathbf{K}}_{k},\ \tilde{\alpha}_{k}$ | Roe eigenvalue, right eigenvector and wave strength of family $k$ |
+| $p_{*}, u_{*}$ | star-region pressure and velocity |
+| $\tilde{u}, \tilde{H}, \tilde{a}$ | Roe-averaged velocity, total enthalpy, sound speed |
+| $\tilde{\lambda}_{k}, \tilde{\mathbf{K}}_{k}, \tilde{\alpha}_{k}$ | Roe eigenvalue, right eigenvector and wave strength of family $k$ |
 | $\nu_{k}$ | Courant number $\tilde{\lambda}_{k}\Delta t/\Delta x$ of family $k$ |
 | $\phi(r)$ | flux limiter |
-| $S_L,\ S_R,\ S_*$ | HLL/HLLC left, right and contact wave speeds |
-| $M^{\pm}_{(4)},\ P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
-| $K_p,\ K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
-| $h,\ a = \sqrt{gh}$ | shallow-water depth and gravity-wave celerity |
+| $S_L, S_R, S_*$ | HLL/HLLC left, right and contact wave speeds |
+| $M^{\pm}_{(4)}, P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
+| $K_p, K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
+| $h, a = \sqrt{gh}$ | shallow-water depth and gravity-wave celerity |
 
 ### Modules
 
@@ -120,12 +120,28 @@ dimensional (SI) shock tube; what the test suite covers.
 
 ## A note on the mathematics in these pages
 
-Equations here are written for GitHub's Markdown maths renderer. They are kept
-deliberately plain — one equation per `$$` block, no `aligned`, `cases` or
-`bmatrix` environments, no custom macros and no `\\` row breaks, because
-those are the constructs that most often fail to render. Column vectors are
-written as transposed rows, e.g. $[\rho,\ \rho u,\ E]^{T}$.
+Equations here are written for GitHub's Markdown maths renderer, which is
+more restrictive than a LaTeX document. The rules these pages follow, each
+of which corresponds to something that does not render:
 
-Figure labels use matplotlib's built-in **mathtext**, never `text.usetex`.
-See the module docstring of `riemann/plotting.py` for why, and for the rules
-the labels follow.
+- **One equation per `$$` block**, with the block on its own line, flush to
+  the left margin, and a blank line either side. An indented `$$` inside a
+  list item is not recognised as maths at all.
+- **No multi-line environments** — no `aligned`, `cases`, `array` or
+  `bmatrix`. They need `\\` row separators, and the Markdown parser
+  consumes backslashes before the maths renderer sees them. Column vectors
+  are written as transposed rows, e.g. $[\rho, \rho u, E]^{T}$, and a
+  case split is written as prose.
+- **No `\tag` or `\label`.** Equation numbering is not available; a
+  reference such as "Toro eq. (4.5)" goes in the surrounding prose.
+- **No spacing macros** (`\,`, `\;`, `\!`). They are purely cosmetic and
+  every one is another backslash for the parser to eat.
+- **No custom macros**, and nothing needing a LaTeX package.
+
+Figure labels are a separate matter: they use matplotlib's built-in
+**mathtext**, never `text.usetex`, so no LaTeX installation is required.
+See the module docstring of `riemann/plotting.py` for the rules they follow.
+
+The repository is checked against these rules: every maths span in `docs/`
+and the README parses under a real TeX engine, and the structural rules
+above are verified mechanically.

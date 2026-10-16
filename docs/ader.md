@@ -58,7 +58,12 @@ $U^{*}(0)$, and take the value on the interface — which means projecting each
 side onto the characteristic fields of $A(U^{*}(0))$ and picking the upwind
 component, field by field:
 
-$$\left(\frac{\partial U}{\partial x}\right)^{*} = \sum_{k} \beta_{k} K_{k}, \qquad \beta_{k} = \begin{array}{l} \alpha_{k}^{L} \ \text{if } \lambda_{k} > 0 \\ \alpha_{k}^{R} \ \text{otherwise} \end{array}$$
+$$\left(\frac{\partial U}{\partial x}\right)^{*} = \sum_{k} \beta_{k} K_{k},$$
+
+where $\beta_{k} = \alpha_{k}^{L}$ when $\lambda_{k} > 0$ and
+$\beta_{k} = \alpha_{k}^{R}$ otherwise, with $\alpha_{k}^{L}$ and
+$\alpha_{k}^{R}$ the characteristic components of the two one-sided
+derivatives.
 
 **Step 3 — Cauchy–Kovalewski.** The governing equation converts the time
 derivative into the space derivative:
@@ -71,7 +76,7 @@ supplies the matrix–vector product directly.
 **Step 4 — the flux.** The interface state is now linear in time within the
 step, so the midpoint rule integrates the flux to second order:
 
-$$F_{i+1/2} = F\!\left(U^{*}(0) + \tfrac{1}{2}\Delta t\left(\frac{\partial U}{\partial t}\right)^{*}\right).$$
+$$F_{i+1/2} = F\left(U^{*}(0) + \tfrac{1}{2}\Delta t\left(\frac{\partial U}{\partial t}\right)^{*}\right).$$
 
 Note what does **not** appear: no numerical flux function. ADER evaluates the
 *physical* flux at a state. The only Riemann solve is the one producing
