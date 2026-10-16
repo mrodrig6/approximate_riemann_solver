@@ -14,7 +14,9 @@ The package provides
   Rusanov and Lax-Friedrichs;
 * :mod:`riemann.limiters` -- superbee, minmod, van Leer, van Albada;
 * :mod:`riemann.problems` -- standard test problems;
-* :mod:`riemann.plotting` -- four-panel comparison figures.
+* :mod:`riemann.plotting` -- comparison figures;
+* :mod:`riemann.shallow_water` -- the same solvers for the shallow-water
+  equations.
 
 Formulation, notation and equation numbers follow Toro, *Riemann Solvers and
 Numerical Methods for Fluid Dynamics*, 3rd ed., Springer 2009.  See ``docs/``
@@ -43,7 +45,7 @@ from .fluxes import (
     roe_average,
 )
 from .limiters import LIMITERS, limiter_phi
-from .plotting import plot_comparison, save_figure
+from .plotting import plot_comparison, plot_shallow_water, save_figure
 from .problems import (
     PROBLEMS,
     RiemannProblem,
@@ -79,6 +81,7 @@ __all__ = [
     "list_problems",
     "numba_version",
     "plot_comparison",
+    "plot_shallow_water",
     "primitive_to_conservative",
     "roe_average",
     "sample_exact",

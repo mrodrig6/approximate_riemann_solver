@@ -39,7 +39,9 @@ def build_parser():
         "  hll / hlle       HLL, Einfeldt wave speeds (Toro Secs. 10.3, 10.5)\n"
         "  ausmup           AUSM+-up (Liou 2006); alias ausm\n"
         "  rusanov / llf    local Lax-Friedrichs (Toro Sec. 10.5)\n"
-        "  lax_friedrichs   classical Lax-Friedrichs (Toro Sec. 5.3.4)"
+        "  lax_friedrichs   classical Lax-Friedrichs (Toro Sec. 5.3.4)\n"
+        "\nFor the shallow-water equations see riemann.shallow_water;\n"
+        "for the one-step ADER scheme pass --scheme ader2."
     ),
     )
     parser.add_argument(
@@ -66,6 +68,12 @@ def build_parser():
         default="superbee",
         choices=sorted(LIMITERS),
         help="flux limiter (default: superbee)",
+    )
+    parser.add_argument(
+        "--scheme",
+        default="tvd",
+        choices=["tvd", "ader2"],
+        help="second-order scheme: tvd (default) or ader2 (one-step ADER)",
     )
     parser.add_argument(
         "--first-order",
@@ -161,6 +169,7 @@ def main(argv=None):
             cfl=args.cfl,
             flux=args.flux,
             limiter=args.limiter,
+            scheme=args.scheme,
             second_order=not args.first_order,
             entropy_fix=not args.no_entropy_fix,
         )

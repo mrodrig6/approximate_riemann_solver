@@ -43,7 +43,7 @@ Homepage = "https://github.com/mrodrig6/approximate_riemann_solver"
 Documentation = "https://github.com/mrodrig6/approximate_riemann_solver/blob/master/docs/index.md"
 
 [tool.setuptools]
-packages = ["riemann", "riemann.fluxes"]
+packages = ["riemann", "riemann.fluxes", "riemann.shallow_water"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

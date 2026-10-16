@@ -175,4 +175,4 @@ Lax-Friedrichs, whose odd-even decoupling drives every limiter ratio to zero
 
 ---
 
-**Next:** [Validation and results](validation.md)
+**Next:** [The ADER scheme](ader.md) · [Validation and results](validation.md)

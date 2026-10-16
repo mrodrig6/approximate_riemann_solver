@@ -99,7 +99,9 @@ $L_1$ error in density on Sod's problem, from 50 to 1600 cells.
 ![Grid convergence](figures/convergence.png)
 
 All three curves have slope $\approx -1$, **not** $-2$, and that is the
-correct result rather than a defect. The exact solution contains a shock and a
+correct result rather than a defect. For the formal order, measured on
+smooth data where it is visible, see
+[ader.md](ader.md#3-order-of-accuracy). The exact solution contains a shock and a
 contact; near a discontinuity any scheme makes an $\mathcal{O}(1)$ error over
 an $\mathcal{O}(\Delta x)$-wide region, which contributes
 $\mathcal{O}(\Delta x)$ to the $L_1$ norm however accurate the scheme is
@@ -224,7 +226,7 @@ and Sod's without any tuning — here in 3 Newton iterations.
 pytest
 ```
 
-142 tests covering, among others:
+232 tests covering, among others:
 
 - star-region values against Toro's Table 4.1 for all five of his test
   problems;
@@ -247,7 +249,12 @@ pytest
 - exact contact preservation (stationary and moving) for Roe, HLLC and
   AUSM+-up, and its absence for HLL, Rusanov and Lax-Friedrichs;
 - the measured accuracy ordering Roe < HLLC < HLL < Rusanov < Lax-Friedrichs;
-- Lax-Friedrichs odd-even decoupling nullifying the limiter.
+- Lax-Friedrichs odd-even decoupling nullifying the limiter;
+- second-order convergence of the TVD and ADER schemes on smooth data, and
+  their agreement to machine precision on a pure contact;
+- for the shallow-water system: the Roe U-property, Ritter's analytic
+  dry-dam-break solution, dry-bed generation, still water as an exact fixed
+  point, and every flux on every dam-break problem.
 
 The suite passes identically with and without Numba
 (`NUMBA_DISABLE_JIT=1 pytest`), which verifies the pure-Python fallback path.

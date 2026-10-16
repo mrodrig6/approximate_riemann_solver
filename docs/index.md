@@ -11,7 +11,8 @@ follow:
 Each page below cites the specific chapters and equations it implements, so
 the code can be read with the book open beside it. The pages follow the
 package layout: one for the exact solver, one for the flux functions, one for
-the scheme built on them.
+the scheme built on them, then the ADER alternative and the shallow-water
+system.
 
 ---
 
@@ -42,7 +43,19 @@ the boundary conditions; Godunov's theorem and why a nonlinear scheme is
 needed for second order; the flux-limited correction; the smoothness sensor
 $r_k$; Sweby's TVD region and the four limiters; stability.
 
-### [5. Validation and results](validation.md)
+### [5. The ADER scheme](ader.md)
+*Toro Chapters 19–20.* A one-step route to second order: a Riemann problem
+solved for the derivatives as well as the states, and the Cauchy–Kovalewski
+procedure turning time derivatives into space derivatives; the measured
+order of accuracy on smooth data, and why that needs smooth data at all.
+
+### [6. The shallow-water equations](shallow-water.md)
+*Toro, Shock-Capturing Methods for Free-Surface Shallow Flows.* The same
+machinery for a second system: exact solver on wet and dry beds, Roe, HLL,
+Rusanov and Lax–Friedrichs fluxes, dam-break results. Why there is no HLLC
+here, and why a dry bed is routine where a vacuum is pathological.
+
+### [7. Validation and results](validation.md)
 Every figure, with the numbers behind it: Sod's problem against the exact
 solution; limiters and order of accuracy; the entropy glitch and its fix;
 grid convergence; Toro's test suite; the documented failure on Test 2; a
@@ -68,6 +81,7 @@ dimensional (SI) shock tube; what the test suite covers.
 | $S_L,\ S_R,\ S_*$ | HLL/HLLC left, right and contact wave speeds |
 | $M^{\pm}_{(4)},\ P^{\pm}_{(5)}$ | AUSM+ split Mach and pressure polynomials |
 | $K_p,\ K_u$ | AUSM+-up pressure- and velocity-diffusion coefficients |
+| $h,\ a = \sqrt{gh}$ | shallow-water depth and gravity-wave celerity |
 
 ### Modules
 
@@ -81,7 +95,9 @@ dimensional (SI) shock tube; what the test suite covers.
 | `riemann/fluxes/central.py` | Rusanov, Lax-Friedrichs |
 | `riemann/fluxes/interface.py` | flux dispatch and the second-order TVD term |
 | `riemann/fluxes/registry.py` | flux names and codes |
-| `riemann/limiters.py` | superbee, minmod, van Leer, van Albada |
+| `riemann/ader.py` | the one-step ADER scheme |
+| `riemann/limiters.py` | superbee, minmod, van Leer, van Albada (shared) |
+| `riemann/shallow_water/` | the shallow-water system: physics, exact solver, fluxes, driver, problems |
 | `riemann/solver.py` | conservative update, CFL time step, boundary conditions |
 | `riemann/problems.py` | Toro's test problems and two extras |
 | `riemann/plotting.py` | four-panel comparison figures |
