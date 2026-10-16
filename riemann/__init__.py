@@ -6,7 +6,10 @@ The package provides
   iteration for the star-region pressure, then self-similar sampling of the
   wave fan;
 * :func:`riemann.solver.solve_roe` -- an explicit finite-volume solver with a
-  choice of numerical flux and an optional second-order TVD extension;
+  choice of numerical flux and of second-order scheme (flux-limited TVD, or
+  the one-step ADER scheme of :mod:`riemann.ader`);
+* :func:`riemann.solver.solve_field` -- the same solver on an arbitrary
+  initial field, for order-of-accuracy studies;
 * :mod:`riemann.fluxes` -- the flux functions: Roe, HLL, HLLC, AUSM+-up,
   Rusanov and Lax-Friedrichs;
 * :mod:`riemann.limiters` -- superbee, minmod, van Leer, van Albada;
@@ -41,8 +44,16 @@ from .fluxes import (
 )
 from .limiters import LIMITERS, limiter_phi
 from .plotting import plot_comparison, save_figure
-from .problems import PROBLEMS, RiemannProblem, get_problem, list_problems
-from .solver import RoeSolution, solve_roe
+from .problems import (
+    PROBLEMS,
+    RiemannProblem,
+    acoustic_pulse,
+    advected_pulse,
+    cell_centres,
+    get_problem,
+    list_problems,
+)
+from .solver import RoeSolution, solve_field, solve_roe
 from .thermo import conservative_to_primitive, primitive_to_conservative
 
 __version__ = "1.1.0"
@@ -57,6 +68,9 @@ __all__ = [
     "RiemannProblem",
     "RoeSolution",
     "__version__",
+    "acoustic_pulse",
+    "advected_pulse",
+    "cell_centres",
     "conservative_to_primitive",
     "flux_code",
     "get_problem",
@@ -70,6 +84,7 @@ __all__ = [
     "sample_exact",
     "save_figure",
     "solve_exact",
+    "solve_field",
     "solve_roe",
     "solve_star_pressure",
 ]

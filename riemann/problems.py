@@ -37,7 +37,15 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ["RiemannProblem", "PROBLEMS", "get_problem", "list_problems"]
+__all__ = [
+    "RiemannProblem",
+    "PROBLEMS",
+    "acoustic_pulse",
+    "advected_pulse",
+    "cell_centres",
+    "get_problem",
+    "list_problems",
+]
 
 
 @dataclass(frozen=True)
@@ -210,3 +218,56 @@ def get_problem(name):
 def list_problems():
     """Return ``(name, description)`` pairs for every built-in problem."""
     return [(p.name, p.description) for p in PROBLEMS.values()]
+
+
+# --------------------------------------------------------------------------- #
+# Smooth initial conditions, for order-of-accuracy studies
+# --------------------------------------------------------------------------- #
+#
+# Every problem above contains a discontinuity, and near one *any* scheme
+# makes an O(1) error over an O(dx) region -- so the L1 error converges at
+# first order however high the formal order of the method is.  Measuring the
+# formal order therefore needs smooth data, which is what these supply.  Feed
+# them to :func:`riemann.solver.solve_field`.
+
+
+def advected_pulse(x, gamma=1.4, velocity=1.0, pressure=1.0, amplitude=0.5,
+                   centre=0.3, width=200.0):
+    """A smooth density pulse advected at constant velocity.
+
+    Velocity and pressure are uniform, so only the linearly degenerate field
+    is excited and the exact solution is simply the initial profile
+    translated: ``rho(x, t) = rho_0(x - u t)``.  Having an analytic answer
+    makes this the cleanest order check available, at the cost of testing
+    only the contact field.
+
+    Returns an ``(n, 3)`` array of primitive states.
+    """
+    x = np.asarray(x, dtype=float)
+    rho = 1.0 + amplitude * np.exp(-width * (x - centre) ** 2)
+    return np.column_stack(
+        [rho, np.full_like(x, velocity), np.full_like(x, pressure)]
+    )
+
+
+def acoustic_pulse(x, gamma=1.4, amplitude=0.2, centre=0.5, width=200.0):
+    """A smooth isentropic pressure pulse at rest.
+
+    The density follows the isentrope ``rho = p**(1/gamma)``, so the data are
+    smooth and physical; the pulse then splits into left- and right-running
+    acoustic waves.  Unlike :func:`advected_pulse` this excites the genuinely
+    non-linear fields, which is where schemes of the same formal order
+    actually differ -- but it has no closed-form solution, so convergence
+    must be measured against a fine-grid reference.
+
+    Returns an ``(n, 3)`` array of primitive states.
+    """
+    x = np.asarray(x, dtype=float)
+    p = 1.0 + amplitude * np.exp(-width * (x - centre) ** 2)
+    return np.column_stack([p ** (1.0 / gamma), np.zeros_like(x), p])
+
+
+def cell_centres(nx, x_left=0.0, x_right=1.0):
+    """Cell-centre coordinates of a uniform grid, matching the solvers'."""
+    dx = (x_right - x_left) / nx
+    return x_left + dx * (np.arange(nx) + 0.5)
