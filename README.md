@@ -18,7 +18,7 @@ chapter and equation number it comes from.
 ## What it does
 
 - **Exact Riemann solver.** Newton–Raphson for the star-region pressure
-  $p_{*}$ with Toro's adaptive initial guess, then closed-form self-similar
+  $p_{\ast}$ with Toro's adaptive initial guess, then closed-form self-similar
   sampling of the wave fan. Reproduces Toro's Table 4.1 to all published
   digits.
 - **Six numerical fluxes**, interchangeable via one argument: **Roe** (with
@@ -154,7 +154,7 @@ in **[`docs/`](docs/index.md)**:
 
 | Page | Covers |
 | --- | --- |
-| [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{*}) = 0$, sampling, vacuum |
+| [The Riemann problem for the Euler equations](docs/formulation.md) | Toro Ch. 3–4: governing equations, wave structure, $f(p_{\ast}) = 0$, sampling, vacuum |
 | [Numerical flux functions](docs/flux-functions.md) | Toro Ch. 10 and Liou 2006: Roe, HLLC, HLL, AUSM+-up, Rusanov, Lax–Friedrichs; measured accuracy, cost and robustness |
 | [Roe's solver in detail](docs/roe-solver.md) | Toro Ch. 11: linearisation, U-property, Roe averages, entropy fix, limitations |
 | [The finite-volume scheme](docs/finite-volume-scheme.md) | Toro Ch. 6, 13–14: conservative update, CFL, boundaries, flux limiting, Sweby's region |

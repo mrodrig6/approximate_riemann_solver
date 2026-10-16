@@ -125,7 +125,7 @@ The Roe flux has one well-known defect (Toro §11.3). A rarefaction fan is a
 *continuous* wave spanning a range of characteristic speeds, but the
 linearisation represents each family by a **single** eigenvalue. When the fan
 straddles the interface — a **transonic** or **sonic** rarefaction, where
-$\lambda_1^{L} = u_L - a_L < 0 < \lambda_1^{*} = u^{*}_{L} - a^{*}_{L}$ — the
+$\lambda_1^{L} = u_L - a_L < 0 < \lambda_1^{\ast} = u^{\ast}_{L} - a^{\ast}_{L}$ — the
 single eigenvalue $\tilde{\lambda}_1$ cannot change sign inside the wave. The
 scheme then admits a discontinuous, entropy-violating "rarefaction shock"
 sitting at the sonic point.
@@ -142,25 +142,25 @@ The remedy implemented here is Harten and Hyman's (Toro §11.3): replace the
 offending eigenvalue with a speed that interpolates across the sonic point.
 For a transonic *left* wave,
 
-$$\bar{\lambda}_{1} = \lambda_{1}^{L} \frac{\lambda_{1}^{*} - \tilde{\lambda}_{1}}{\lambda_{1}^{*} - \lambda_{1}^{L}},$$
+$$\bar{\lambda}_{1} = \lambda_{1}^{L} \frac{\lambda_{1}^{\ast} - \tilde{\lambda}_{1}}{\lambda_{1}^{\ast} - \lambda_{1}^{L}},$$
 
 where $\lambda_{1}^{L} = u_{L} - a_{L}$ is the physical speed at the head of
-the fan and $\lambda_{1}^{*} = u^{*}_{L} - a^{*}_{L}$ is the speed at its tail,
+the fan and $\lambda_{1}^{\ast} = u^{\ast}_{L} - a^{\ast}_{L}$ is the speed at its tail,
 evaluated in the Roe star state
-$\mathbf{U}^{*}_{L} = \mathbf{U}_{L} + \tilde{\alpha}_{1}\tilde{\mathbf{K}}_{1}$.
+$\mathbf{U}^{\ast}_{L} = \mathbf{U}_{L} + \tilde{\alpha}_{1}\tilde{\mathbf{K}}_{1}$.
 The flux becomes
 
 $$\mathbf{F}_{i+1/2} = \mathbf{F}(\mathbf{U}_{L}) + \bar{\lambda}_{1} \tilde{\alpha}_{1} \tilde{\mathbf{K}}_{1}.$$
 
 The mirror case, a transonic *right* wave with
-$\lambda_{3}^{*} < 0 < \lambda_{3}^{R}$, uses
+$\lambda_{3}^{\ast} < 0 < \lambda_{3}^{R}$, uses
 
-$$\bar{\lambda}_{3} = \lambda_{3}^{R} \frac{\tilde{\lambda}_{3} - \lambda_{3}^{*}}{\lambda_{3}^{R} - \lambda_{3}^{*}}, \qquad \mathbf{F}_{i+1/2} = \mathbf{F}(\mathbf{U}_{R}) - \bar{\lambda}_{3} \tilde{\alpha}_{3} \tilde{\mathbf{K}}_{3},$$
+$$\bar{\lambda}_{3} = \lambda_{3}^{R} \frac{\tilde{\lambda}_{3} - \lambda_{3}^{\ast}}{\lambda_{3}^{R} - \lambda_{3}^{\ast}}, \qquad \mathbf{F}_{i+1/2} = \mathbf{F}(\mathbf{U}_{R}) - \bar{\lambda}_{3} \tilde{\alpha}_{3} \tilde{\mathbf{K}}_{3},$$
 
-with the star state $\mathbf{U}^{*}_{R} = \mathbf{U}_{R} - \tilde{\alpha}_{3}\tilde{\mathbf{K}}_{3}$.
+with the star state $\mathbf{U}^{\ast}_{R} = \mathbf{U}_{R} - \tilde{\alpha}_{3}\tilde{\mathbf{K}}_{3}$.
 
 The two cases are mutually exclusive: a transonic wave 1 requires
-$\lambda_{1}^{*} > 0$, which forces $\lambda_{3}^{*} > 0$ as well. The
+$\lambda_{1}^{\ast} > 0$, which forces $\lambda_{3}^{\ast} > 0$ as well. The
 implementation exploits this, and folds the right-transonic branch into the
 left-based form by setting
 $\tilde{\lambda}^{-}_{3} = \tilde{\lambda}_{3} - \bar{\lambda}_{3}$, so a
@@ -184,7 +184,7 @@ within the first time step, and the run cannot continue.
 
 The standard demonstration is Toro's Test 2, the "123 problem"
 ($\rho = 1$, $u = \mp 2$, $p = 0.4$), whose star pressure is
-$p_{*} \approx 0.0019$. In this code:
+$p_{\ast} \approx 0.0019$. In this code:
 
 ```console
 $ python -m riemann toro2

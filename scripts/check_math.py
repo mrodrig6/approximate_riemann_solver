@@ -22,6 +22,10 @@ Each rule below exists because of something that does not render:
 * no ``\tag`` or ``\label``: equation numbering is unavailable;
 * no cosmetic spacing macros (``\,``, ``\;``, ``\!``), each of which is
   another backslash for the parser to eat;
+* no literal ``*`` inside maths: GitHub resolves emphasis before the maths
+  span reaches the renderer, and ``*`` -- unlike ``_`` -- pairs intraword, so
+  two asterisks in a paragraph wrap everything between them in ``<em>`` and
+  the equation is destroyed.  Write ``\ast`` instead;
 * balanced ``$`` delimiters on every line.
 
 Exits non-zero if anything fails.
@@ -43,6 +47,7 @@ FORBIDDEN = {
     r"\,": "cosmetic spacing macro; use a plain space",
     r"\;": "cosmetic spacing macro; use a plain space",
     r"\!": "cosmetic spacing macro; delete it",
+    "*": "GitHub pairs '*' as emphasis before the maths is rendered; use \\ast",
 }
 
 MATH = re.compile(r"\$\$([\s\S]+?)\$\$|(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)")
@@ -60,6 +65,9 @@ def math_spans(text):
             continue
         masked.append("" if incode else line)
     clean = "\n".join(masked)
+    # Blank out inline code spans too: a backticked ``$$`` in prose about these
+    # rules is not maths, and neither is a ``$`` in a shell snippet.
+    clean = re.sub(r"`[^`\n]*`", lambda m: " " * len(m.group(0)), clean)
     for m in MATH.finditer(clean):
         body = m.group(1) if m.group(1) is not None else m.group(2)
         yield clean[: m.start()].count("\n") + 1, body

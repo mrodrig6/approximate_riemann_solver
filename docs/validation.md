@@ -24,7 +24,7 @@ left rarefaction, a contact and a right shock.
 
 ![Sod's problem: exact versus second-order Roe](figures/sod_comparison.png)
 
-Exact: $p_{*} = 0.30313018$, $u_{*} = 0.92745262$, reached in 4 Newton
+Exact: $p_{\ast} = 0.30313018$, $u_{\ast} = 0.92745262$, reached in 4 Newton
 iterations. Toro's Table 4.1 gives $0.30313$ and $0.92745$.
 
 Reading the four panels together is the point of plotting all four. The
