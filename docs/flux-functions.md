@@ -44,7 +44,7 @@ $$\mathbf{F} = \tfrac{1}{2}\left(\mathbf{F}_L + \mathbf{F}_R\right) - \tfrac{1}{
 
 Lax–Friedrichs takes $S = \Delta x / \Delta t$, the *global* mesh speed;
 Rusanov takes the *local* maximum signal speed
-$S = \max(|u_L| + a_L,\ |u_R| + a_R)$. Robust and trivial, but the same large
+$S = \max(|u_L| + a_L, |u_R| + a_R)$. Robust and trivial, but the same large
 coefficient hits every field, so contacts smear badly.
 
 **HLL-type.** Assume an approximate wave structure and average the exact
@@ -73,7 +73,7 @@ when $S_L \le 0 \le S_R$, and simply the upwind physical flux otherwise.
 The code uses **Einfeldt's** estimates (Toro Sec. 10.5), which is what makes
 this the HLLE variant:
 
-$$S_L = \min\left(u_L - a_L,\ \tilde{u} - \tilde{a}\right), \qquad S_R = \max\left(u_R + a_R,\ \tilde{u} + \tilde{a}\right),$$
+$$S_L = \min\left(u_L - a_L, \tilde{u} - \tilde{a}\right), \qquad S_R = \max\left(u_R + a_R, \tilde{u} + \tilde{a}\right),$$
 
 with $\tilde{u}, \tilde{a}$ the Roe averages. Taking the minimum over *both*
 the physical and the Roe speed is what guarantees the estimates bracket every
@@ -97,7 +97,7 @@ $$S_* = \frac{p_R - p_L + \rho_L u_L\left(S_L - u_L\right) - \rho_R u_R\left(S_R
 and the Rankine–Hugoniot conditions across the outer waves give the two star
 states (Toro eq. 10.39), for $K \in \{L, R\}$:
 
-$$\mathbf{U}^{*}_{K} = \rho_K \frac{S_K - u_K}{S_K - S_*}\left[1,\ S_*,\ \frac{E_K}{\rho_K} + \left(S_* - u_K\right)\left(S_* + \frac{p_K}{\rho_K\left(S_K - u_K\right)}\right)\right]^{T},$$
+$$\mathbf{U}^{*}_{K} = \rho_K \frac{S_K - u_K}{S_K - S_*}\left[1, S_*, \frac{E_K}{\rho_K} + \left(S_* - u_K\right)\left(S_* + \frac{p_K}{\rho_K\left(S_K - u_K\right)}\right)\right]^{T},$$
 
 with $\mathbf{F}^{*}_{K} = \mathbf{F}_K + S_K\left(\mathbf{U}^{*}_{K} - \mathbf{U}_K\right)$.
 The flux is then selected by the sign of $S_L$, $S_*$ and $S_R$.
@@ -114,15 +114,15 @@ AUSM-family schemes do not decompose the jump at all. They split the flux into
 a convective part carried by an interface *velocity* and a separate pressure
 part:
 
-$$\mathbf{F} = u_{1/2}\,\mathbf{\Psi}_{\text{upwind}} + \left[0,\ p_{1/2},\ 0\right]^{T}, \qquad \mathbf{\Psi} = \left[\rho,\ \rho u,\ E + p\right]^{T},$$
+$$\mathbf{F} = u_{1/2} \mathbf{\Psi}_{\text{upwind}} + \left[0, p_{1/2}, 0\right]^{T}, \qquad \mathbf{\Psi} = \left[\rho, \rho u, E + p\right]^{T},$$
 
 with $\mathbf{\Psi}$ taken from the left when $u_{1/2} > 0$ and from the right
 otherwise. The interface velocity and pressure are built from polynomial
 splittings of each side's Mach number $M_K = u_K / a_{1/2}$:
 
-$$u_{1/2} = a_{1/2}\left[M^{+}_{(4)}(M_L) + M^{-}_{(4)}(M_R)\right] + K_p \max\left(1 - \bar{M}^{2},\ 0\right)\frac{p_L - p_R}{\rho_{1/2}\,a_{1/2}},$$
+$$u_{1/2} = a_{1/2}\left[M^{+}_{(4)}(M_L) + M^{-}_{(4)}(M_R)\right] + K_p \max\left(1 - \bar{M}^{2}, 0\right)\frac{p_L - p_R}{\rho_{1/2} a_{1/2}},$$
 
-$$p_{1/2} = P^{+}_{(5)}(M_L)\,p_L + P^{-}_{(5)}(M_R)\,p_R + K_u\,P^{+}_{(5)}P^{-}_{(5)}\,\rho_{1/2}\,a_{1/2}\left(u_L - u_R\right),$$
+$$p_{1/2} = P^{+}_{(5)}(M_L) p_L + P^{-}_{(5)}(M_R) p_R + K_u P^{+}_{(5)}P^{-}_{(5)} \rho_{1/2} a_{1/2}\left(u_L - u_R\right),$$
 
 where $a_{1/2} = \tfrac{1}{2}(a_L + a_R)$,
 $\rho_{1/2} = \tfrac{1}{2}(\rho_L + \rho_R)$ and

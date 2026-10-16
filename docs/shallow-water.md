@@ -22,7 +22,7 @@ gives
 
 $$\frac{\partial \mathbf{U}}{\partial t} + \frac{\partial \mathbf{F}(\mathbf{U})}{\partial x} = \mathbf{0},$$
 
-$$\mathbf{U} = [h,\ hu]^{T}, \qquad \mathbf{F} = [hu,\ hu^{2} + \tfrac{1}{2}gh^{2}]^{T},$$
+$$\mathbf{U} = [h, hu]^{T}, \qquad \mathbf{F} = [hu, hu^{2} + \tfrac{1}{2}gh^{2}]^{T},$$
 
 with $h$ the depth, $u$ the depth-averaged velocity and $g$ gravity.
 
@@ -76,9 +76,9 @@ $$f(h) = f_{L}(h, h_{L}) + f_{R}(h, h_{R}) + (u_{R} - u_{L}) = 0,$$
 
 with the one-sided depth functions
 
-$$f_{K}(h) = 2\left(\sqrt{gh} - \sqrt{gh_{K}}\right) \qquad h \le h_{K} \ \ \text{(rarefaction)},$$
+$$f_{K}(h) = 2\left(\sqrt{gh} - \sqrt{gh_{K}}\right) \qquad h \le h_{K} \text{(rarefaction)},$$
 
-$$f_{K}(h) = (h - h_{K})\sqrt{\frac{g}{2}\,\frac{h + h_{K}}{h\,h_{K}}} \qquad h > h_{K} \ \ \text{(bore)}.$$
+$$f_{K}(h) = (h - h_{K})\sqrt{\frac{g}{2} \frac{h + h_{K}}{h h_{K}}} \qquad h > h_{K} \text{(bore)}.$$
 
 $f$ is monotone increasing and concave, so Newton converges from any positive
 start. The starting guess is the two-rarefaction approximation,
@@ -118,7 +118,7 @@ wet/dry front advances at $2\sqrt{gh_{L}}$. The test suite asserts all three.
 
 The Roe average for this system is
 
-$$\tilde{u} = \frac{\sqrt{h_{L}}\,u_{L} + \sqrt{h_{R}}\,u_{R}}{\sqrt{h_{L}} + \sqrt{h_{R}}}, \qquad \tilde{a} = \sqrt{\tfrac{1}{2}g\,(h_{L} + h_{R})}.$$
+$$\tilde{u} = \frac{\sqrt{h_{L}} u_{L} + \sqrt{h_{R}} u_{R}}{\sqrt{h_{L}} + \sqrt{h_{R}}}, \qquad \tilde{a} = \sqrt{\tfrac{1}{2}g (h_{L} + h_{R})}.$$
 
 As for a gas, these are the unique averages making the U-property
 $\mathbf{F}_R - \mathbf{F}_L = \tilde{A}(\mathbf{U}_R - \mathbf{U}_L)$ hold
