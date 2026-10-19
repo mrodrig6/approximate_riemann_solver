@@ -11,13 +11,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann import get_problem, solve_exact, solve_star_pressure
-from riemann.exact import (
+from src import get_problem, solve_exact, solve_star_pressure
+from src.euler.exact import (
     pressure_function,
     pressure_function_derivative,
     sample_exact,
 )
-from riemann.thermo import sound_speed
+from src.euler.thermo import sound_speed
 
 # Toro Table 4.1: (problem, p_star, u_star).  Tolerances reflect the number of
 # digits Toro prints, not the accuracy of the solver (which is ~1e-12).

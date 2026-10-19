@@ -10,11 +10,11 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann import get_problem, solve_exact, solve_roe
-from riemann.fluxes import FLUX_NAMES, ROBUST_FLUXES
-from riemann.problems import PROBLEMS
-from riemann.solver import N_GHOST
-from riemann.thermo import primitive_to_conservative
+from src import get_problem, solve_exact, solve_roe
+from src.euler.fluxes import FLUX_NAMES, ROBUST_FLUXES
+from src.euler.problems import PROBLEMS
+from src.euler.solver import N_GHOST
+from src.euler.thermo import primitive_to_conservative
 
 GAMMA = 1.4
 

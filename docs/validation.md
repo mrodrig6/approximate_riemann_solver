@@ -143,7 +143,7 @@ Test 2 — the "123 problem", $\rho = 1$, $u = \mp 2$, $p = 0.4$ — is **not**
 shown above because Roe's solver cannot run it:
 
 ```console
-$ python -m riemann toro2
+$ python -m src toro2
 exact solution : p* = 0.0018938734, u* = 0 (1 Newton iterations)
 wave pattern   : left rarefaction, contact, right rarefaction
 
@@ -154,7 +154,7 @@ flux='roe' produced a non-physical state (negative pressure or density) at step 
 **This is now fixable.** A positivity-preserving flux runs it:
 
 ```console
-$ python -m riemann toro2 --flux hllc
+$ python -m src toro2 --flux hllc
 numerical run  : HLLC, 2nd order, superbee, nx = 200, CFL = 0.9
   rho  L1 = 4.5816e-03   relative L1 = 4.5816e-03
 ```

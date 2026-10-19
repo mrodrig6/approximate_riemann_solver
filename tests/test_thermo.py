@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann import conservative_to_primitive, primitive_to_conservative
-from riemann.thermo import (
+from src import conservative_to_primitive, primitive_to_conservative
+from src.euler.thermo import (
     enthalpy,
     euler_flux,
     pressure,

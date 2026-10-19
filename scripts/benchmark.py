@@ -19,8 +19,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from riemann import get_problem, solve_roe  # noqa: E402
-from riemann._jit import HAVE_NUMBA, numba_version  # noqa: E402
+from src import get_problem, solve_roe  # noqa: E402
+from src.core.jit import HAVE_NUMBA, numba_version  # noqa: E402
 
 JIT_ON = HAVE_NUMBA and os.environ.get("NUMBA_DISABLE_JIT") != "1"
 

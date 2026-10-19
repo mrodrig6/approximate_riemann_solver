@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann.limiters import LIMITERS, limiter_code, limiter_phi
+from src.core.limiters import LIMITERS, limiter_code, limiter_phi
 
 
 @pytest.mark.parametrize("name", [n for n in LIMITERS if n != "none"])

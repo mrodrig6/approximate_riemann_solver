@@ -5,7 +5,7 @@
 > solver, Chapters 7–10 for the numerical fluxes.
 
 ```python
-from riemann.shallow_water import get_problem, solve, solve_exact
+from src.shallow_water import get_problem, solve, solve_exact
 
 prob = get_problem("dam_break")
 exact = solve_exact(prob.left, prob.right, prob.t_end)
@@ -167,7 +167,7 @@ correction.
 ## 6. Layout
 
 ```
-riemann/shallow_water/
+src/shallow_water/
   physics.py    variables, physical flux, Roe average, eigenstructure
   exact.py      exact Riemann solver, wet and dry bed
   fluxes.py     Roe, HLL, Rusanov, Lax-Friedrichs; dispatch; TVD term

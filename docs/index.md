@@ -12,7 +12,8 @@ Each page below cites the specific chapters and equations it implements, so
 the code can be read with the book open beside it. The pages follow the
 package layout: one for the exact solver, one for the flux functions, one for
 the scheme built on them, then the ADER alternative and the shallow-water
-system.
+system. The last page is about the code rather than the mathematics, and maps
+the modules onto everything above.
 
 ---
 
@@ -61,6 +62,12 @@ solution; limiters and order of accuracy; the entropy glitch and its fix;
 grid convergence; Toro's test suite; the documented failure on Test 2; a
 dimensional (SI) shock tube; what the test suite covers.
 
+### [8. Package architecture](architecture.md)
+How the modules of `src/` fit together: the three-layer hierarchy and the rule
+that separates them; the annotated directory tree; the import graph; what each
+module owns and what it is allowed to import; and where a new flux, limiter,
+scheme or system of equations goes.
+
 ---
 
 ## Quick reference
@@ -87,22 +94,22 @@ dimensional (SI) shock tube; what the test suite covers.
 
 | Module | Contents |
 | --- | --- |
-| `riemann/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
-| `riemann/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
-| `riemann/fluxes/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
-| `riemann/fluxes/hll.py` | Einfeldt wave speeds, HLL, HLLC |
-| `riemann/fluxes/ausm.py` | split polynomials, AUSM+-up |
-| `riemann/fluxes/central.py` | Rusanov, Lax-Friedrichs |
-| `riemann/fluxes/interface.py` | flux dispatch and the second-order TVD term |
-| `riemann/fluxes/registry.py` | flux names and codes |
-| `riemann/ader.py` | the one-step ADER scheme |
-| `riemann/limiters.py` | superbee, minmod, van Leer, van Albada (shared) |
-| `riemann/shallow_water/` | the shallow-water system: physics, exact solver, fluxes, driver, problems |
-| `riemann/solver.py` | conservative update, CFL time step, boundary conditions |
-| `riemann/problems.py` | Toro's test problems and two extras |
-| `riemann/plotting.py` | four-panel comparison figures |
-| `riemann/cli.py` | `python -m riemann` |
-| `riemann/_jit.py` | optional-Numba shim |
+| `src/euler/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
+| `src/euler/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
+| `src/euler/fluxes/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
+| `src/euler/fluxes/hll.py` | Einfeldt wave speeds, HLL, HLLC |
+| `src/euler/fluxes/ausm.py` | split polynomials, AUSM+-up |
+| `src/euler/fluxes/central.py` | Rusanov, Lax-Friedrichs |
+| `src/euler/fluxes/interface.py` | flux dispatch and the second-order TVD term |
+| `src/euler/fluxes/registry.py` | flux names and codes |
+| `src/euler/ader.py` | the one-step ADER scheme |
+| `src/core/limiters.py` | superbee, minmod, van Leer, van Albada (shared) |
+| `src/shallow_water/` | the shallow-water system: physics, exact solver, fluxes, driver, problems |
+| `src/euler/solver.py` | conservative update, CFL time step, boundary conditions |
+| `src/euler/problems.py` | Toro's test problems and two extras |
+| `src/core/plotting.py` | four-panel comparison figures |
+| `src/cli.py` | `python -m src` |
+| `src/core/jit.py` | optional-Numba shim |
 
 ### Built-in problems
 
@@ -145,7 +152,7 @@ of which corresponds to something that does not render:
 
 Figure labels are a separate matter: they use matplotlib's built-in
 **mathtext**, never `text.usetex`, so no LaTeX installation is required.
-See the module docstring of `riemann/plotting.py` for the rules they follow.
+See the module docstring of `src/core/plotting.py` for the rules they follow.
 
 The repository is checked against these rules: every maths span in `docs/`
 and the README parses under a real TeX engine, and the structural rules

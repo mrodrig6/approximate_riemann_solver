@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from riemann.problems import PROBLEMS, get_problem, list_problems
+from src.euler.problems import PROBLEMS, get_problem, list_problems
 
 
 def test_problem_catalogue_is_well_formed():
@@ -28,7 +28,7 @@ def test_get_problem_is_case_insensitive_and_errors_helpfully():
         get_problem("nope")
 
 def test_problem_kwargs_feed_the_solvers():
-    from riemann import solve_roe
+    from src import solve_roe
 
     kwargs = get_problem("sod").kwargs()
     roe = solve_roe(nx=50, **kwargs)

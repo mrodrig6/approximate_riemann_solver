@@ -10,8 +10,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann import get_problem, solve_exact, solve_roe
-from riemann.fluxes import (
+from src import get_problem, solve_exact, solve_roe
+from src.euler.fluxes import (
     FLUXES,
     ausm_up_flux,
     flux_code,
@@ -26,7 +26,7 @@ from riemann.fluxes import (
     roe_average,
     rusanov_flux,
 )
-from riemann.thermo import euler_flux, primitive_to_conservative
+from src.euler.thermo import euler_flux, primitive_to_conservative
 
 GAMMA = 1.4
 
@@ -320,7 +320,7 @@ def test_ausm_up_runs_every_problem_at_first_order():
     the characteristic-based TVD correction this package pairs it with, not
     in the flux.  EMS pairs AUSM with WENO reconstruction instead.
     """
-    from riemann.problems import PROBLEMS
+    from src.euler.problems import PROBLEMS
 
     for prob in PROBLEMS.values():
         sol = solve_roe(

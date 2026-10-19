@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from riemann.limiters import LIMITERS
-from riemann.shallow_water import (
+from src.core.limiters import LIMITERS
+from src.shallow_water import (
     FLUX_NAMES,
     GRAVITY,
     PROBLEMS,
@@ -31,12 +31,12 @@ from riemann.shallow_water import (
     solve_field,
     solve_star_depth,
 )
-from riemann.shallow_water.fluxes import (
+from src.shallow_water.fluxes import (
     hll_flux,
     lax_friedrichs_flux,
     rusanov_flux,
 )
-from riemann.shallow_water.physics import swe_flux
+from src.shallow_water.physics import swe_flux
 
 ALL_FLUXES = sorted(set(FLUX_NAMES.values()))
 G = GRAVITY

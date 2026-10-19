@@ -10,7 +10,7 @@ self-contained and deterministic -- the solvers have no randomness -- so the
 committed figures can always be reproduced and diffed.
 
 Every figure here uses matplotlib's built-in mathtext for its labels, never
-``text.usetex``.  See the module docstring of :mod:`riemann.plotting` for why.
+``text.usetex``.  See the module docstring of :mod:`src.core.plotting` for why.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import matplotlib
 matplotlib.use("Agg")  # no display needed; must precede the pyplot import
 import matplotlib.pyplot as plt  # noqa: E402
 
-from riemann import (  # noqa: E402
+from src import (  # noqa: E402
     acoustic_pulse,
     cell_centres,
     get_problem,
@@ -36,10 +36,10 @@ from riemann import (  # noqa: E402
     solve_field,
     solve_roe,
 )
-from riemann.shallow_water import get_problem as swe_problem  # noqa: E402
-from riemann.shallow_water import solve as swe_solve  # noqa: E402
-from riemann.shallow_water import solve_exact as swe_solve_exact  # noqa: E402
-from riemann.plotting import (  # noqa: E402
+from src.shallow_water import get_problem as swe_problem  # noqa: E402
+from src.shallow_water import solve as swe_solve  # noqa: E402
+from src.shallow_water import solve_exact as swe_solve_exact  # noqa: E402
+from src.core.plotting import (  # noqa: E402
     MARKERS,
     PALETTE,
     plot_shallow_water,

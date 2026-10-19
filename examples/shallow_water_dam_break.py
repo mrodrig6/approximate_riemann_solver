@@ -21,8 +21,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from riemann import plot_shallow_water, save_figure
-from riemann.shallow_water import GRAVITY, get_problem, solve, solve_exact
+from src import plot_shallow_water, save_figure
+from src.shallow_water import GRAVITY, get_problem, solve, solve_exact
 
 for name in ("dam_break", "dam_break_dry"):
     prob = get_problem(name)

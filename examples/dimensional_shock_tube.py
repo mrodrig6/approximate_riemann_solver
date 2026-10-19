@@ -21,7 +21,7 @@ import sys
 # installed (`pip install -e .`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from riemann import get_problem, plot_comparison, save_figure, solve_exact, solve_roe
+from src import get_problem, plot_comparison, save_figure, solve_exact, solve_roe
 
 problem = get_problem("air_shock_tube")
 print(problem.description)

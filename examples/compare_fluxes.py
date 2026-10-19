@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from riemann import plot_comparison, save_figure, solve_exact, solve_roe
+from src import plot_comparison, save_figure, solve_exact, solve_roe
 
 gamma, t_end, nx = 1.4, 0.25, 100
 w_left, w_right = [1.0, 0.0, 1.0], [0.125, 0.0, 0.1]
