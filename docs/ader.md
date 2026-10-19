@@ -6,7 +6,7 @@
 > problem and the Cauchy–Kovalewski procedure).
 
 ```python
-solve_roe(gamma, w_l, w_r, t_end, nx=200, scheme="ader2")
+solve(gamma, w_l, w_r, t_end, nx=200, scheme="ader2")
 ```
 
 ---
@@ -138,9 +138,19 @@ structure and the route to higher order, not the constant.
   higher-degree reconstruction; the structure below is arranged for it but
   it is not implemented.
 - **The linear reconstruction can go non-physical** on a very strong jump
-  before the limiter catches it. The implementation falls back to the cell
-  averages at such an interface, and `limiter="minmod"` is the safe choice
-  on Toro's tests 3 to 5.
+  before the limiter catches it. A boundary-extrapolated state with zero
+  density or negative pressure cannot be fed to the wave model at all — it
+  divides by the density to form the velocity and takes the square root of
+  the pressure to form the sound speed — so the implementation checks the
+  extrapolated states and falls back to the cell averages at such an
+  interface.
+- **Which problems it runs is narrower than the TVD scheme's.** It runs
+  `sod`, `toro3`, `toro4`, `sonic_rarefaction` and `air_shock_tube` with
+  every limiter, and fails on `toro2` and `toro5` with every limiter —
+  the near-vacuum "123 problem" and the slowly-moving contact. The limiter
+  does not decide the outcome either way, so no limiter choice rescues those
+  two; use `scheme="tvd"` with `flux="hllc"` for them. A failure is reported
+  as a `FloatingPointError` naming the step and the time.
 - **No entropy fix is applied**, and none is needed: the leading state comes
   from HLLC, which is entropy-satisfying.
 

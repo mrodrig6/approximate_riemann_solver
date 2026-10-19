@@ -203,7 +203,7 @@ because those *are* the equations.
 
 | Module | Owns | Imports |
 | --- | --- | --- |
-| `core/jit.py` | `njit`, and the no-op fallback when Numba is absent | nothing |
+| `core/jit.py` | `njit`, the no-op fallback when Numba is absent, and the fast-math flag set | nothing |
 | `core/limiters.py` | the four limiter functions, by integer code | `core/jit.py` |
 | `core/plotting.py` | figure layout, mathtext labels, saving | nothing at import time |
 | `euler/physics.py` | ideal-gas EOS, `U` and `W` conversions, `F(U)` | `core/jit.py` |
@@ -260,7 +260,7 @@ two systems' suites can be read side by side:
 ```
 tests/
   test_cli.py
-  core/            test_limiters.py
+  core/            test_jit.py test_limiters.py
   euler/           test_physics.py test_exact.py test_fluxes.py
                    test_ader.py test_solver.py test_problems.py
   shallow_water/   test_physics.py test_exact.py test_fluxes.py

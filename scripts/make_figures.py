@@ -34,7 +34,7 @@ from src import (  # noqa: E402
     get_problem,
     solve_exact,
     solve_field,
-    solve_roe,
+    solve,
 )
 from src.shallow_water import get_problem as swe_problem  # noqa: E402
 from src.shallow_water import solve as swe_solve  # noqa: E402
@@ -75,7 +75,7 @@ def figure_sod():
         prob.gamma, prob.left, prob.right, prob.t_end, n=2000,
         x_diaphragm=prob.x_diaphragm,
     )
-    roe = solve_roe(
+    roe = solve(
         prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
         x_diaphragm=prob.x_diaphragm, limiter="superbee",
     )
@@ -100,11 +100,11 @@ def figure_order_and_limiters():
         x_diaphragm=prob.x_diaphragm,
     )
     runs = [
-        (solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
+        (solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
                    second_order=False), "1st-order Roe"),
-        (solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
+        (solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
                    limiter="minmod"), "2nd order, minmod"),
-        (solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
+        (solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=100,
                    limiter="superbee"), "2nd order, superbee"),
     ]
     fig, axes = plot_comparison(
@@ -143,8 +143,8 @@ def figure_entropy_fix():
             gamma=prob.gamma, w_l=prob.left, w_r=prob.right, t_end=prob.t_end,
             nx=nx, x_diaphragm=prob.x_diaphragm, second_order=False,
         )
-        fixed = solve_roe(entropy_fix=True, **kw)
-        unfixed = solve_roe(entropy_fix=False, **kw)
+        fixed = solve(entropy_fix=True, **kw)
+        unfixed = solve(entropy_fix=False, **kw)
 
         ax.plot(exact.x, exact.rho, color=PALETTE["exact"], lw=2.0, label="Exact",
                 zorder=2)
@@ -188,7 +188,7 @@ def figure_toro_suite():
             prob.gamma, prob.left, prob.right, prob.t_end, n=2000,
             x_diaphragm=prob.x_diaphragm,
         )
-        roe = solve_roe(
+        roe = solve(
             prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
             x_diaphragm=prob.x_diaphragm, limiter="superbee",
         )
@@ -228,7 +228,7 @@ def figure_convergence():
     for kwargs, label in configs:
         errors = []
         for nx in resolutions:
-            roe = solve_roe(
+            roe = solve(
                 prob.gamma, prob.left, prob.right, prob.t_end, nx=int(nx),
                 x_diaphragm=prob.x_diaphragm, **kwargs
             )
@@ -265,7 +265,7 @@ def figure_air_shock_tube():
         prob.gamma, prob.left, prob.right, prob.t_end, n=2000,
         x_diaphragm=prob.x_diaphragm,
     )
-    roe = solve_roe(
+    roe = solve(
         prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
         x_diaphragm=prob.x_diaphragm, limiter="superbee",
     )
@@ -312,7 +312,7 @@ def figure_flux_comparison():
         ax.plot(exact.x, exact.rho, color=PALETTE["exact"], lw=2.0, zorder=2,
                 label="Exact")
         try:
-            sol = solve_roe(
+            sol = solve(
                 prob.gamma, prob.left, prob.right, prob.t_end, nx=nx,
                 flux=name, limiter="superbee",
             )
@@ -372,7 +372,7 @@ def figure_toro2_positivity():
     runs = []
     for idx, name in enumerate(("hllc", "hll")):
         runs.append((
-            solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
+            solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
                       flux=name, limiter="superbee"),
             name.upper(),
             idx,

@@ -98,7 +98,7 @@ class RiemannProblem:
         return np.array(self.w_r, dtype=float)
 
     def kwargs(self):
-        """The geometry/physics keywords shared by the exact and Roe solvers."""
+        """The geometry/physics keywords shared by the exact and numerical solvers."""
         return dict(
             gamma=self.gamma,
             w_l=self.left,

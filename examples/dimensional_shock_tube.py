@@ -21,7 +21,7 @@ import sys
 # installed (`pip install -e .`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import get_problem, plot_comparison, save_figure, solve_exact, solve_roe
+from src import get_problem, plot_comparison, save_figure, solve_exact, solve
 
 problem = get_problem("air_shock_tube")
 print(problem.description)
@@ -43,7 +43,7 @@ print(f"Newton iterations: {exact.iterations}")
 # shock, so the left wave is vanishingly weak and the solution is essentially a
 # single shock travelling into the ambient air.
 
-roe = solve_roe(
+roe = solve(
     problem.gamma, problem.left, problem.right, problem.t_end,
     nx=200, x_diaphragm=problem.x_diaphragm, limiter="superbee",
 )

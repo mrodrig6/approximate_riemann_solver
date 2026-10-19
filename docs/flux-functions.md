@@ -17,7 +17,7 @@ therefore treats the flux as a plug-in, one module per family, selected with
 `flux=`:
 
 ```python
-solve_roe(gamma, w_l, w_r, t_end, nx=200, flux="hllc")
+solve(gamma, w_l, w_r, t_end, nx=200, flux="hllc")
 ```
 
 ```bash

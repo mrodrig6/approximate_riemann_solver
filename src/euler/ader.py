@@ -83,6 +83,27 @@ __all__ = ["ader2_fluxes"]
 
 
 @njit
+def _is_physical(u_cell, gamma):
+    """True only for a state with positive density and positive pressure.
+
+    Two details matter and both are deliberate.
+
+    The density test comes first and returns early, because
+    :func:`~src.euler.physics.pressure` divides by the density -- asking for
+    the pressure of a zero-density state is itself the error this guard
+    exists to prevent.
+
+    The tests are written as ``> 0.0`` rather than ``not <= 0.0`` so that a
+    NaN, which compares ``False`` against everything, is reported as
+    non-physical.  A reconstruction that has already produced a NaN is
+    exactly the case that must reach the fallback.
+    """
+    if not (u_cell[0] > 0.0):
+        return False
+    return pressure(u_cell, gamma) > 0.0
+
+
+@njit
 def _godunov_state_hllc(u_l, u_r, gamma, out):
     """The state on the interface, ``x/t = 0``, from the HLLC wave model.
 
@@ -253,9 +274,29 @@ def ader2_fluxes(u_all, gamma, dx, dt, limiter_code_):
             d_r[m] = slopes[j + 1, m] / dx
 
         # 1. Leading term: the Godunov state on the interface.
+        #
+        # The extrapolated states are checked *before* the wave model sees
+        # them, not only afterwards.  A limited slope can still push a
+        # boundary-extrapolated state to zero density or negative pressure on
+        # a strong enough jump, and the wave model cannot survive either: it
+        # divides by the density to form the velocity, and takes the square
+        # root of the pressure to form the sound speed.  Checking only the
+        # resulting state is too late -- the division has already happened.
+        if not (_is_physical(u_l, gamma) and _is_physical(u_r, gamma)):
+            for m in range(3):
+                u_l[m] = u_all[j, m]
+                u_r[m] = u_all[j + 1, m]
+                d_l[m] = 0.0
+                d_r[m] = 0.0
+
         _godunov_state_hllc(u_l, u_r, gamma, u_star)
-        if u_star[0] <= 0.0:
-            # Degenerate reconstruction; fall back to the cell averages.
+
+        # The cell averages are physical -- the time loop checks that every
+        # step -- and HLLC with Einfeldt speeds is positivity-preserving, so
+        # this second guard should not fire once the first has.  It is kept
+        # because "should not" is not "cannot", and the cost is two
+        # comparisons at an interface that is already in trouble.
+        if not _is_physical(u_star, gamma):
             for m in range(3):
                 u_l[m] = u_all[j, m]
                 u_r[m] = u_all[j + 1, m]
@@ -278,7 +319,7 @@ def ader2_fluxes(u_all, gamma, dx, dt, limiter_code_):
                 u_mid[m] += w * kmat[k, m]
 
         # 4. Midpoint rule on the physical flux.
-        if u_mid[0] > 0.0 and pressure(u_mid, gamma) > 0.0:
+        if _is_physical(u_mid, gamma):
             f = euler_flux(u_mid, gamma)
         else:
             # Keep the step physical if the half-step state is not.

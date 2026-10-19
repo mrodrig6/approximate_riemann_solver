@@ -43,7 +43,7 @@ from .physics import (
     specific_internal_energy,
 )
 
-__all__ = ["RoeSolution", "solve_roe", "solve_field", "N_GHOST"]
+__all__ = ["EulerResult", "solve", "solve_field", "N_GHOST"]
 
 #: Ghost cells per side.  Two are needed, not one: the flux limiter at the
 #: first interior interface reads the wave strengths of the interface one
@@ -78,10 +78,22 @@ def _max_signal_speed(u_all, gamma, n_ghost):
     s_max = 0.0
     for i in range(n_ghost, n_cells - n_ghost):
         rho = u_all[i, 0]
+        # Each positivity test comes *before* the arithmetic it protects.
+        # Forming the velocity and the pressure both divide by the density, so
+        # testing the density afterwards is too late: a cell that the previous
+        # step drove to zero density raises ZeroDivisionError here instead of
+        # reaching the caller, which has a positivity report of its own to
+        # give.  The shallow-water twin of this function skips dry cells for
+        # the same reason.
+        #
+        # The tests are written as ``not (x > 0.0)`` rather than ``x <= 0.0``
+        # so that a NaN, which compares False against everything, is also
+        # reported as a failure rather than reaching the square root.
+        if not (rho > 0.0):
+            return -1.0
         vel = u_all[i, 1] / rho
         p = (gamma - 1.0) * (u_all[i, 2] - 0.5 * u_all[i, 1] * u_all[i, 1] / rho)
-        if p <= 0.0 or rho <= 0.0:
-            # Signal the caller rather than taking sqrt of a negative number.
+        if not (p > 0.0):
             return -1.0
         a = np.sqrt(gamma * p / rho)
         s = abs(vel) + a
@@ -164,8 +176,8 @@ def _positivity_message(fcode, steps, t, scheme="tvd"):
 
 
 @dataclass
-class RoeSolution:
-    """Result of a Roe-solver run on a uniform grid.
+class EulerResult:
+    """Result of a numerical run on a uniform grid.
 
     Attributes
     ----------
@@ -230,7 +242,7 @@ class RoeSolution:
         return f"{name}, 1st order"
 
 
-def solve_roe(
+def solve(
     gamma,
     w_l,
     w_r,
@@ -247,7 +259,7 @@ def solve_roe(
     entropy_fix=True,
     max_steps=200_000,
 ):
-    """Solve a Riemann problem numerically with the TVD Roe scheme.
+    """Solve a Riemann problem numerically.
 
     Parameters
     ----------
@@ -286,7 +298,7 @@ def solve_roe(
         and ``second_order`` do not apply to it.
     second_order : bool
         Include the flux-limited second-order correction.  Setting this
-        ``False`` gives the plain first-order Roe scheme, which is useful for
+        ``False`` gives the plain first-order scheme, which is useful for
         showing how much the TVD term actually buys.
     entropy_fix : bool
         Apply the Harten-Hyman entropy fix.  Setting this ``False`` reproduces
@@ -297,7 +309,7 @@ def solve_roe(
 
     Returns
     -------
-    RoeSolution
+    EulerResult
     """
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
@@ -334,7 +346,7 @@ def solve_field(
 ):
     """Advance an arbitrary initial field, not just two constant states.
 
-    :func:`solve_roe` is a thin wrapper around this: it builds the
+    :func:`solve` is a thin wrapper around this: it builds the
     two-state field and hands it over.  Working with a field directly is what
     makes an order-of-accuracy study possible, since measuring the formal
     order of a scheme needs *smooth* initial data -- on a discontinuity every
@@ -349,11 +361,11 @@ def solve_field(
         grid spanning ``[x_left, x_right]``.  ``nx`` is taken from its shape.
     t_end, x_left, x_right, cfl, flux, limiter, scheme, second_order,
     entropy_fix, max_steps
-        As for :func:`solve_roe`.
+        As for :func:`solve`.
 
     Returns
     -------
-    RoeSolution
+    EulerResult
     """
     w_init = np.atleast_2d(np.asarray(w_init, dtype=float))
     if w_init.ndim != 2 or w_init.shape[1] != 3:
@@ -422,7 +434,7 @@ def solve_field(
     prim = conservative_to_primitive(u_int, gamma)
     rho, vel, p = prim[:, 0], prim[:, 1], prim[:, 2]
 
-    return RoeSolution(
+    return EulerResult(
         x=x,
         rho=rho,
         u=vel,

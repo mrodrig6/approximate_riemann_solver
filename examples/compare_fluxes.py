@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from src import plot_comparison, save_figure, solve_exact, solve_roe
+from src import plot_comparison, save_figure, solve_exact, solve
 
 gamma, t_end, nx = 1.4, 0.25, 100
 w_left, w_right = [1.0, 0.0, 1.0], [0.125, 0.0, 0.1]
@@ -46,7 +46,7 @@ print(f"Sod's problem, {nx} cells, superbee limiter, CFL 0.9\n")
 print(f"{'flux':<18} {'contact':>9} {'L1 (rho)':>12}")
 for name in ("roe", "hllc", "hll", "ausmup", "rusanov", "lax_friedrichs"):
     try:
-        sol = solve_roe(gamma, w_left, w_right, t_end, nx=nx, flux=name)
+        sol = solve(gamma, w_left, w_right, t_end, nx=nx, flux=name)
     except FloatingPointError:
         print(f"{name:<18} {'--':>9} {'did not run':>12}")
         continue

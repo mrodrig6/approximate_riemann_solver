@@ -5,7 +5,7 @@ The package provides
 * :func:`src.euler.exact.solve_exact` -- the exact Riemann solver: Newton
   iteration for the star-region pressure, then self-similar sampling of the
   wave fan;
-* :func:`src.euler.solver.solve_roe` -- an explicit finite-volume solver with a
+* :func:`src.euler.solver.solve` -- an explicit finite-volume solver with a
   choice of numerical flux and of second-order scheme (flux-limited TVD, or
   the one-step ADER scheme of :mod:`src.euler.ader`);
 * :func:`src.euler.solver.solve_field` -- the same solver on an arbitrary
@@ -24,13 +24,13 @@ for the full write-up.
 
 Quick start
 -----------
->>> from src import get_problem, solve_exact, solve_roe
+>>> from src import get_problem, solve_exact, solve
 >>> prob = get_problem("sod")
 >>> exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end)
 >>> round(exact.p_star, 5)
 0.30313
->>> roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
->>> hllc = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, flux="hllc")
+>>> roe = solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
+>>> hllc = solve(prob.gamma, prob.left, prob.right, prob.t_end, flux="hllc")
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from .euler import (
     ROBUST_FLUXES,
     ExactSolution,
     RiemannProblem,
-    RoeSolution,
+    EulerResult,
     acoustic_pulse,
     advected_pulse,
     cell_centres,
@@ -64,13 +64,14 @@ from .euler import (
     sample_exact,
     solve_exact,
     solve_field,
-    solve_roe,
+    solve,
     solve_star_pressure,
 )
 
 __version__ = "1.1.0"
 
 __all__ = [
+    "EulerResult",
     "ExactSolution",
     "FLUXES",
     "HAVE_NUMBA",
@@ -78,7 +79,6 @@ __all__ = [
     "PROBLEMS",
     "ROBUST_FLUXES",
     "RiemannProblem",
-    "RoeSolution",
     "__version__",
     "acoustic_pulse",
     "advected_pulse",
@@ -96,8 +96,8 @@ __all__ = [
     "roe_average",
     "sample_exact",
     "save_figure",
+    "solve",
     "solve_exact",
     "solve_field",
-    "solve_roe",
     "solve_star_pressure",
 ]
