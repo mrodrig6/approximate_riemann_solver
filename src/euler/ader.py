@@ -77,7 +77,7 @@ import numpy as np
 from ..core.jit import njit
 from .fluxes.hll import einfeldt_wave_speeds
 from ..core.limiters import limiter_phi
-from .thermo import euler_flux, pressure
+from .physics import euler_flux, pressure
 
 __all__ = ["ader2_fluxes"]
 

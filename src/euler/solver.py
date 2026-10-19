@@ -35,10 +35,9 @@ import numpy as np
 
 from ..core.jit import njit
 from .ader import ader2_fluxes
-from .fluxes import interface_fluxes
-from .fluxes.registry import FLUX_NAMES, flux_code
+from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
 from ..core.limiters import LIMITER_NAMES, limiter_code
-from .thermo import (
+from .physics import (
     conservative_to_primitive,
     primitive_to_conservative,
     specific_internal_energy,

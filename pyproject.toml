@@ -43,7 +43,14 @@ Homepage = "https://github.com/mrodrig6/approximate_riemann_solver"
 Documentation = "https://github.com/mrodrig6/approximate_riemann_solver/blob/master/docs/index.md"
 
 [tool.setuptools]
-packages = ["src", "src.core", "src.euler", "src.euler.fluxes", "src.shallow_water"]
+packages = [
+    "src",
+    "src.core",
+    "src.euler",
+    "src.euler.fluxes",
+    "src.shallow_water",
+    "src.shallow_water.fluxes",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

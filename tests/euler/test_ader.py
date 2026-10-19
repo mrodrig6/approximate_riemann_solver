@@ -147,7 +147,7 @@ def test_ader2_is_conservative():
     t_end, nx = 0.15, 100
     sol = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx,
                     scheme="ader2")
-    from src.euler.thermo import primitive_to_conservative
+    from src.euler.physics import primitive_to_conservative
 
     initial = primitive_to_conservative(
         np.where((sol.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),

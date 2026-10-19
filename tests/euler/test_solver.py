@@ -14,7 +14,7 @@ from src import get_problem, solve_exact, solve_roe
 from src.euler.fluxes import FLUX_NAMES, ROBUST_FLUXES
 from src.euler.problems import PROBLEMS
 from src.euler.solver import N_GHOST
-from src.euler.thermo import primitive_to_conservative
+from src.euler.physics import primitive_to_conservative
 
 GAMMA = 1.4
 

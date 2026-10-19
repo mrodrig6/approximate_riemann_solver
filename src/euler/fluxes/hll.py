@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 
 from ...core.jit import njit
-from ..thermo import euler_flux, pressure
+from ..physics import euler_flux, pressure
 
 __all__ = ["einfeldt_wave_speeds", "hll_flux", "hllc_flux"]
 

@@ -17,7 +17,7 @@ from src.euler.exact import (
     pressure_function_derivative,
     sample_exact,
 )
-from src.euler.thermo import sound_speed
+from src.euler.physics import sound_speed
 
 # Toro Table 4.1: (problem, p_star, u_star).  Tolerances reflect the number of
 # digits Toro prints, not the accuracy of the solver (which is ~1e-12).

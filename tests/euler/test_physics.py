@@ -1,4 +1,7 @@
-"""Equation of state, variable conversions and the physical Euler flux."""
+"""Equation of state, variable conversions and the physical Euler flux.
+
+The twin of ``tests/shallow_water/test_physics.py``.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +9,7 @@ import numpy as np
 import pytest
 
 from src import conservative_to_primitive, primitive_to_conservative
-from src.euler.thermo import (
+from src.euler.physics import (
     enthalpy,
     euler_flux,
     pressure,
@@ -35,7 +38,7 @@ def test_single_state_roundtrip_keeps_shape():
     assert u.shape == (3,)
     assert conservative_to_primitive(u, GAMMA).shape == (3,)
 
-def test_thermo_identities():
+def test_eos_identities():
     """H = (E + p)/rho, e = p/((gamma-1) rho), a^2 = gamma p / rho."""
     w = np.array([2.0, 1.5, 7.0])
     u = primitive_to_conservative(w, GAMMA)

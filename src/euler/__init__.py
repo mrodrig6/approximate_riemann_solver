@@ -9,17 +9,21 @@ closed by an ideal-gas equation of state.  Three wave families, one of them
 linearly degenerate (the contact) -- which is the wave the HLLC flux exists to
 restore and HLL averages away.
 
-The modules, in the order the solver uses them:
+================ =====================================================
+Module           Contents
+================ =====================================================
+:mod:`.physics`  variables, closure, physical flux
+:mod:`.exact`    exact Riemann solver
+:mod:`.fluxes`   Roe, HLL, HLLC, AUSM+-up, Rusanov, LF; dispatch; TVD
+:mod:`.ader`     the one-step ADER alternative to the TVD correction
+:mod:`.solver`   finite-volume driver, CFL, boundary conditions
+:mod:`.problems` Toro's test problems and smooth initial fields
+================ =====================================================
 
-* :mod:`src.euler.thermo` -- equation of state, variable conversions, the
-  physical flux.  Depends on nothing else here;
-* :mod:`src.euler.exact` -- the exact Riemann solver, used as the reference
-  solution everywhere;
-* :mod:`src.euler.fluxes` -- the numerical fluxes (Roe, HLL, HLLC, AUSM+-up,
-  Rusanov, Lax-Friedrichs) and the flux-limited TVD correction;
-* :mod:`src.euler.ader` -- the one-step ADER alternative to that correction;
-* :mod:`src.euler.solver` -- the time loop, which selects between the two;
-* :mod:`src.euler.problems` -- Toro's test problems and smooth initial fields.
+The module names and their contents match :mod:`src.shallow_water` slot for
+slot, so a reader who knows one subpackage knows where to look in the other.
+:mod:`.ader` is the one module with no counterpart there: the scheme is
+written for this system and has not been carried across.
 
 Notation and equation numbers follow Toro, *Riemann Solvers and Numerical
 Methods for Fluid Dynamics*, 3rd ed., Springer 2009.
@@ -37,6 +41,13 @@ from .fluxes import (
     interface_fluxes,
     roe_average,
 )
+from .physics import (
+    conservative_to_primitive,
+    euler_flux,
+    pressure,
+    primitive_to_conservative,
+    sound_speed,
+)
 from .problems import (
     PROBLEMS,
     RiemannProblem,
@@ -47,13 +58,6 @@ from .problems import (
     list_problems,
 )
 from .solver import RoeSolution, solve_field, solve_roe
-from .thermo import (
-    conservative_to_primitive,
-    euler_flux,
-    pressure,
-    primitive_to_conservative,
-    sound_speed,
-)
 
 __all__ = [
     "ExactSolution",

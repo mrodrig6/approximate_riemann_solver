@@ -279,35 +279,46 @@ src/
     limiters.py           superbee, minmod, van Leer, van Albada
     plotting.py           four-panel comparison figures
   euler/                the 1-D Euler equations
-    thermo.py             equation of state, variable conversions, Euler flux
+    physics.py            equation of state, variable conversions, Euler flux
     exact.py              exact Riemann solver
     fluxes/
+      registry.py           flux names and codes
       roe.py                Roe average, eigenstructure, Roe flux, entropy fix
       hll.py                Einfeldt wave speeds, HLL, HLLC
       ausm.py               split polynomials, AUSM+-up
       central.py            Rusanov, Lax-Friedrichs
       interface.py          flux dispatch and the second-order TVD term
-      registry.py           flux names and codes
     ader.py               the one-step ADER scheme
     solver.py             finite-volume driver, CFL, boundary conditions
     problems.py           test problems
   shallow_water/        the shallow-water equations
-    physics.py            variables, flux, Roe average, eigenstructure
+    physics.py            depth-averaged variables, celerity, the flux
     exact.py              exact solver, wet and dry bed
-    fluxes.py             Roe, HLL, Rusanov, Lax-Friedrichs; TVD term
-    solver.py             finite-volume driver
+    fluxes/
+      registry.py           flux names and codes
+      roe.py                Roe average, eigenstructure, entropy fix, dry fallback
+      hll.py                wave speeds with dry-bed handling, HLL
+      central.py            Rusanov, Lax-Friedrichs
+      interface.py          flux dispatch and the second-order TVD term
+    solver.py             finite-volume driver, wet/dry handling
     problems.py           dam-break problems
   cli.py                python -m src
 docs/                 formulation, flux functions, validation, figures
 examples/             five runnable examples
 scripts/              figure generation and benchmarking
-tests/                232 pytest tests, mirroring the package layout
+tests/                232 pytest tests, mirroring src/ directory for directory
 ```
 
+The two systems hold the same modules under the same names, each with the same
+job, so a reader who knows one knows where to look in the other. The three
+gaps — no shallow-water HLLC, AUSM+-up or ADER — are differences in the
+equations, not in the code, and
+[docs/architecture.md](docs/architecture.md) says why for each.
+
 Every import points downwards: `core/` knows about neither system, and the two
-systems never import each other. [docs/architecture.md](docs/architecture.md)
-has the import graph, what each module owns, and where a new flux, limiter,
-scheme or system of equations goes.
+systems never import each other. That page also has the import graph, what
+each module owns, and where a new flux, limiter, scheme or system of equations
+goes.
 
 The original MATLAB implementation, which this package was ported from, is
 archived on the

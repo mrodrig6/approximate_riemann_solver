@@ -8,15 +8,20 @@ A parallel to the Euler solvers in the parent package, for the system
 Everything is organised the same way, and the two share the limiter
 functions, the Numba shim and the plotting style:
 
-=============== ======================================================
-Module          Contents
-=============== ======================================================
-:mod:`.physics` variables, physical flux, Roe average, eigenstructure
-:mod:`.exact`   exact Riemann solver, wet and dry bed
-:mod:`.fluxes`  Roe, HLL, Rusanov, Lax-Friedrichs; dispatch; TVD term
-:mod:`.solver`  finite-volume driver, CFL, boundary conditions
+================ =====================================================
+Module           Contents
+================ =====================================================
+:mod:`.physics`  variables, closure, physical flux
+:mod:`.exact`    exact Riemann solver, wet and dry bed
+:mod:`.fluxes`   Roe, HLL, Rusanov, Lax-Friedrichs; dispatch; TVD term
+:mod:`.solver`   finite-volume driver, CFL, boundary conditions
 :mod:`.problems` dam-break test problems
-=============== ======================================================
+================ =====================================================
+
+The module names and their contents match :mod:`src.euler` slot for slot, so
+a reader who knows one subpackage knows where to look in the other.  The two
+differences are both absences in :mod:`.fluxes` -- no HLLC and no AUSM+-up --
+and both are explained there.
 
 What differs from the Euler case
 --------------------------------
@@ -48,14 +53,21 @@ from .exact import (
     solve_exact,
     solve_star_depth,
 )
-from .fluxes import FLUXES, FLUX_NAMES, flux_code, interface_fluxes
+from .fluxes import (
+    FLUX_NAMES,
+    FLUXES,
+    ROBUST_FLUXES,
+    flux_code,
+    interface_eigensystem,
+    interface_fluxes,
+    roe_average,
+)
 from .physics import (
     GRAVITY,
     celerity,
     conservative_to_primitive,
-    interface_eigensystem,
     primitive_to_conservative,
-    roe_average,
+    swe_flux,
 )
 from .problems import PROBLEMS, ShallowWaterProblem, get_problem, list_problems
 from .solver import ShallowWaterResult, solve, solve_field
@@ -65,6 +77,7 @@ __all__ = [
     "FLUX_NAMES",
     "GRAVITY",
     "PROBLEMS",
+    "ROBUST_FLUXES",
     "ShallowWaterProblem",
     "ShallowWaterResult",
     "ShallowWaterSolution",
@@ -83,4 +96,5 @@ __all__ = [
     "solve_exact",
     "solve_field",
     "solve_star_depth",
+    "swe_flux",
 ]

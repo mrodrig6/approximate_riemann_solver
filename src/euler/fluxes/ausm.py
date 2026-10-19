@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 
 from ...core.jit import njit
-from ..thermo import pressure
+from ..physics import pressure
 
 __all__ = [
     "ausm_up_flux",

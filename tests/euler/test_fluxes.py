@@ -26,7 +26,7 @@ from src.euler.fluxes import (
     roe_average,
     rusanov_flux,
 )
-from src.euler.thermo import euler_flux, primitive_to_conservative
+from src.euler.physics import euler_flux, primitive_to_conservative
 
 GAMMA = 1.4
 

@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..core.jit import njit
-from .thermo import sound_speed, specific_internal_energy
+from .physics import sound_speed, specific_internal_energy
 
 __all__ = [
     "ExactSolution",

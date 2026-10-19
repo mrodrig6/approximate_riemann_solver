@@ -38,7 +38,7 @@ and the specific **total** enthalpy, which the Roe average is built from, is
 $$H = \frac{E + p}{\rho}.$$
 
 Throughout the code, $\mathbf{W} = [\rho, u, p]^{T}$ denotes the *primitive*
-state vector and $\mathbf{U}$ the *conservative* one. `src/euler/thermo.py` holds
+state vector and $\mathbf{U}$ the *conservative* one. `src/euler/physics.py` holds
 the conversions between them.
 
 ### Why the system is hyperbolic
@@ -234,7 +234,7 @@ precisely where Roe's approximate solver needs an entropy fix — see
 
 | Concept | Equation | Code |
 | --- | --- | --- |
-| Primitive ↔ conservative, EOS | Toro 3.9 | `src/euler/thermo.py` |
+| Primitive ↔ conservative, EOS | Toro 3.9 | `src/euler/physics.py` |
 | Pressure function $f(p)$ | Toro 4.5–4.7 | `exact.pressure_function` |
 | Its derivative | Toro 4.37 | `exact.pressure_function_derivative` |
 | Adaptive initial guess | Toro §9.5 | `exact.initial_pressure_guess` |

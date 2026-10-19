@@ -64,9 +64,11 @@ dimensional (SI) shock tube; what the test suite covers.
 
 ### [8. Package architecture](architecture.md)
 How the modules of `src/` fit together: the three-layer hierarchy and the rule
-that separates them; the annotated directory tree; the import graph; what each
-module owns and what it is allowed to import; and where a new flux, limiter,
-scheme or system of equations goes.
+that separates them; the slot-for-slot correspondence between `euler/` and
+`shallow_water/`, and why the three gaps in it are differences in the
+equations rather than in the code; the annotated tree; the import graph; what
+each module owns and may import; and where a new flux, limiter, scheme or
+system of equations goes.
 
 ---
 
@@ -94,7 +96,7 @@ scheme or system of equations goes.
 
 | Module | Contents |
 | --- | --- |
-| `src/euler/thermo.py` | equation of state, primitive ↔ conservative, Euler flux |
+| `src/euler/physics.py` | equation of state, primitive ↔ conservative, Euler flux |
 | `src/euler/exact.py` | exact Riemann solver: $f(p)$, Newton, sampling |
 | `src/euler/fluxes/roe.py` | Roe average, eigenstructure, Roe flux, entropy fix |
 | `src/euler/fluxes/hll.py` | Einfeldt wave speeds, HLL, HLLC |
@@ -104,7 +106,7 @@ scheme or system of equations goes.
 | `src/euler/fluxes/registry.py` | flux names and codes |
 | `src/euler/ader.py` | the one-step ADER scheme |
 | `src/core/limiters.py` | superbee, minmod, van Leer, van Albada (shared) |
-| `src/shallow_water/` | the shallow-water system: physics, exact solver, fluxes, driver, problems |
+| `src/shallow_water/` | the shallow-water system, module for module the same shape as `src/euler/` |
 | `src/euler/solver.py` | conservative update, CFL time step, boundary conditions |
 | `src/euler/problems.py` | Toro's test problems and two extras |
 | `src/core/plotting.py` | four-panel comparison figures |

@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 
 from ...core.jit import njit
-from ..thermo import euler_flux, pressure
+from ..physics import euler_flux, pressure
 
 __all__ = ["roe_average", "interface_eigensystem", "roe_flux"]
 
