@@ -35,7 +35,7 @@ chapter and equation number it comes from.
   dimensional (SI) air shock tube.
 - **Numba acceleration**, roughly 100× over pure Python, with a transparent
   fallback when Numba is not installed.
-- **249 tests** checking the solvers against Toro's published values and
+- **263 tests** checking the solvers against Toro's published values and
   against their own defining identities (the Roe U-property, the AUSM+ split
   identities, Sweby's TVD region, exact contact preservation, exact
   conservation).
@@ -317,7 +317,7 @@ src/
 docs/                 formulation, flux functions, validation, figures
 examples/             five runnable examples
 scripts/              figure generation and benchmarking
-tests/                249 pytest tests, mirroring src/ directory for directory
+tests/                263 pytest tests, mirroring src/ directory for directory
 ```
 
 The two systems hold the same modules under the same names, each with the same

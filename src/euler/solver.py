@@ -38,6 +38,7 @@ from .ader import ader2_fluxes
 from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
 from ..core.limiters import LIMITER_NAMES, limiter_code
 from .physics import (
+    check_gamma,
     conservative_to_primitive,
     primitive_to_conservative,
     specific_internal_energy,
@@ -386,7 +387,7 @@ def solve_field(
 
     code = limiter_code(limiter)
     fcode = flux_code(flux)
-    gamma = float(gamma)
+    gamma = check_gamma(gamma)
 
     dx = (x_right - x_left) / nx
     x = x_left + dx * (np.arange(nx) + 0.5)

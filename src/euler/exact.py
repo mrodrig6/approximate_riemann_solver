@@ -30,7 +30,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..core.jit import njit
-from .physics import sound_speed, specific_internal_energy
+from .physics import check_gamma, sound_speed, specific_internal_energy
 
 __all__ = [
     "ExactSolution",
@@ -212,6 +212,7 @@ def solve_star_pressure(gamma, w_l, w_r, tol=1.0e-12, max_iter=100, p_guess=None
     ValueError
         If the data generate a vacuum, or if Newton fails to converge.
     """
+    gamma = check_gamma(gamma)
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
     _check_positivity(w_l, w_r)

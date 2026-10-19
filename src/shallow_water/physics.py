@@ -54,12 +54,35 @@ import numpy as np
 from ..core.jit import njit
 
 __all__ = [
+    "check_gravity",
     "GRAVITY",
     "celerity",
     "conservative_to_primitive",
     "primitive_to_conservative",
     "swe_flux",
 ]
+
+
+def check_gravity(gravity):
+    """Validate the gravitational acceleration and return it as a float.
+
+    ``gravity > 0`` matters more here than the Euler check on ``gamma``,
+    because the failure was silent rather than loud.  The celerity is
+    ``sqrt(g h)``, so ``g = 0`` makes every wave speed zero and ``g < 0``
+    makes them NaN; either way the maximum signal speed comes out ``0.0``,
+    which the time loop reads as its legitimate "everything is dry and at
+    rest" case.  It then set ``t = t_end`` and returned the initial condition
+    unchanged, with ``steps = 0`` and no error -- a plausible-looking wrong
+    answer.
+    """
+    gravity = float(gravity)
+    if not (gravity > 0.0):
+        raise ValueError(
+            f"gravity must be positive, got {gravity!r}; the celerity is "
+            f"sqrt(g h) (9.81 m/s^2 on Earth)"
+        )
+    return gravity
+
 
 #: Standard gravity, m/s^2.  The default everywhere in this subpackage.
 GRAVITY = 9.81

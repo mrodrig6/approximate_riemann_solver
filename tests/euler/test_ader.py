@@ -230,3 +230,45 @@ def test_solve_field_validates_its_input():
         bad = acoustic_pulse(x)
         bad[0, 0] = -1.0
         solve_field(GAMMA, bad, 0.1)
+
+
+def test_ader2_galilean_sensitivity_is_the_reason_toro5_fails():
+    """Pins *why* ADER2 fails Toro's test 5, so the reason cannot drift.
+
+    Test 5 is test 3 with a uniform -19.59745 added to both velocities, and
+    the Euler equations are Galilean invariant, so the two differ only by the
+    frame.  This scheme nevertheless runs test 3 and fails the shifted
+    version, because ``_limited_slopes`` limits componentwise on the
+    conserved variables where the TVD correction limits on the characteristic
+    wave strengths.  The TVD scheme, on identical data, survives every shift
+    asserted here.
+
+    If limiting ever moves to primitive or characteristic variables this test
+    fails, which is the intended signal: the limitations section of
+    ``docs/ader.md`` would then be describing something that no longer
+    happens.
+    """
+    prob = get_problem("toro3")
+    t_end = 0.004          # short enough to keep the waves on the grid
+
+    def run(u0, **kw):
+        w_l = np.array(prob.left, dtype=float)
+        w_r = np.array(prob.right, dtype=float)
+        w_l[1] += u0
+        w_r[1] += u0
+        return solve(prob.gamma, w_l, w_r, t_end, nx=200, limiter="minmod", **kw)
+
+    # Unshifted, and a small shift: ADER is fine.
+    assert np.all(run(0.0, scheme="ader2").p > 0.0)
+    assert np.all(run(-1.0, scheme="ader2").p > 0.0)
+
+    # The frame alone breaks it, and not symmetrically in the sign.
+    for u0 in (-5.0, -19.59745):
+        with pytest.raises(FloatingPointError):
+            run(u0, scheme="ader2")
+    assert np.all(run(+19.59745, scheme="ader2").p > 0.0)
+
+    # The TVD scheme runs every one of those frames, which is what makes this
+    # an implementation limitation rather than a property of the data.
+    for u0 in (0.0, -1.0, -5.0, -19.59745, +19.59745):
+        assert np.all(run(u0, flux="hllc").p > 0.0), u0

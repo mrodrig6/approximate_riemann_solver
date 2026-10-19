@@ -206,8 +206,19 @@ def _limited_slopes(u_all, limiter_code_, slopes):
 
     The slope is written as ``phi(r) * (U_{i+1} - U_i)`` with
     ``r = (U_i - U_{i-1}) / (U_{i+1} - U_i)``, so the same limiter functions
-    that the TVD flux correction uses apply unchanged here, and the same
-    Sweby bound keeps the reconstruction monotone.
+    that the TVD flux correction uses apply unchanged here.
+
+    Two caveats, both measured rather than supposed.  The Sweby bound makes
+    each *conserved component* monotone; it says nothing about the pressure,
+    which is a difference of large numbers and can still come out negative.
+    And limiting componentwise on the conserved variables is **not Galilean
+    invariant**, where the TVD correction limits on the characteristic wave
+    strengths and is: adding a uniform velocity to Toro's test 3 and varying
+    it alone makes this scheme fail from about -5 onwards while the TVD
+    scheme runs throughout, which is why ADER fails Toro's test 5 (the same
+    problem shifted by -19.59745).  Limiting on primitive or characteristic
+    variables is the standard fix and is not done here; see the limitations
+    section of ``docs/ader.md``.
     """
     n_cells = u_all.shape[0]
     for i in range(n_cells):
