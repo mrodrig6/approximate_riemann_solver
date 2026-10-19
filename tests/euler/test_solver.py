@@ -10,10 +10,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src import get_problem, solve_exact, solve_roe
+from src import get_problem, solve_exact, solve
 from src.euler.fluxes import FLUX_NAMES, ROBUST_FLUXES
 from src.euler.problems import PROBLEMS
-from src.euler.solver import N_GHOST
+from src.euler.solver import N_GHOST, _max_signal_speed
 from src.euler.physics import primitive_to_conservative
 
 GAMMA = 1.4
@@ -38,7 +38,7 @@ def test_scheme_is_conservative():
     """
     prob = get_problem("sod")
     t_end, nx = 0.15, 200
-    roe = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx)
+    roe = solve(prob.gamma, prob.left, prob.right, t_end, nx=nx)
     dx = roe.dx
     initial = primitive_to_conservative(
         np.where((roe.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),
@@ -60,7 +60,7 @@ def test_every_flux_conserves_mass_and_energy(name):
     """Every flux is in conservation form, so the totals obey the boundary flux."""
     prob = get_problem("sod")
     t_end, nx = 0.15, 100
-    sol = solve_roe(prob.gamma, prob.left, prob.right, t_end, nx=nx, flux=name)
+    sol = solve(prob.gamma, prob.left, prob.right, t_end, nx=nx, flux=name)
     initial = primitive_to_conservative(
         np.where((sol.x < 0.5)[:, None], prob.left[None, :], prob.right[None, :]),
         prob.gamma,
@@ -75,7 +75,7 @@ def test_every_flux_conserves_mass_and_energy(name):
 def test_uniform_flow_is_preserved_exactly():
     """A constant state must be a fixed point of the scheme."""
     w = np.array([1.2, 0.8, 3.4])
-    roe = solve_roe(1.4, w, w, 0.3, nx=64)
+    roe = solve(1.4, w, w, 0.3, nx=64)
     assert roe.rho == pytest.approx(np.full(64, w[0]))
     assert roe.u == pytest.approx(np.full(64, w[1]))
     assert roe.p == pytest.approx(np.full(64, w[2]))
@@ -83,7 +83,7 @@ def test_uniform_flow_is_preserved_exactly():
 @pytest.mark.parametrize("name", ALL_FLUXES)
 def test_uniform_flow_is_a_fixed_point(name):
     w = np.array([1.2, 0.8, 3.4])
-    sol = solve_roe(GAMMA, w, w, 0.3, nx=64, flux=name)
+    sol = solve(GAMMA, w, w, 0.3, nx=64, flux=name)
     assert sol.rho == pytest.approx(np.full(64, w[0]))
     assert sol.u == pytest.approx(np.full(64, w[1]))
     assert sol.p == pytest.approx(np.full(64, w[2]))
@@ -91,7 +91,7 @@ def test_uniform_flow_is_a_fixed_point(name):
 def test_solution_lands_exactly_on_the_output_time():
     """The last step must be truncated, not allowed to overshoot."""
     prob = get_problem("sod")
-    roe = solve_roe(prob.gamma, prob.left, prob.right, 0.1234, nx=100)
+    roe = solve(prob.gamma, prob.left, prob.right, 0.1234, nx=100)
     assert roe.t == pytest.approx(0.1234, rel=1e-14)
 
 
@@ -102,7 +102,7 @@ def test_solution_lands_exactly_on_the_output_time():
 def test_isolated_shock_is_captured_sharply():
     """Roe's U-property means a single shock is resolved in very few cells."""
     prob = get_problem("air_shock_tube")
-    roe = solve_roe(
+    roe = solve(
         prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
         x_diaphragm=prob.x_diaphragm, limiter="superbee",
     )
@@ -121,7 +121,7 @@ def test_second_order_beats_first_order():
         ("minmod", dict(limiter="minmod")),
         ("superbee", dict(limiter="superbee")),
     ]:
-        roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, **kwargs)
+        roe = solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, **kwargs)
         errors[label] = np.mean(np.abs(roe.rho - reference.rho))
     # Superbee is the most compressive, minmod the most diffusive of the two.
     assert errors["superbee"] < errors["minmod"] < errors["first"]
@@ -131,9 +131,9 @@ def test_second_order_beats_first_for_each_flux(name):
     prob = get_problem("sod")
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
     kw = dict(nx=200, flux=name)
-    second = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
+    second = solve(prob.gamma, prob.left, prob.right, prob.t_end,
                        second_order=True, **kw)
-    first = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end,
+    first = solve(prob.gamma, prob.left, prob.right, prob.t_end,
                       second_order=False, **kw)
     assert np.mean(np.abs(second.rho - exact.rho)) < np.mean(
         np.abs(first.rho - exact.rho)
@@ -143,7 +143,7 @@ def test_error_decreases_under_refinement():
     prob = get_problem("sod")
     previous = np.inf
     for nx in (50, 100, 200, 400):
-        roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=nx)
+        roe = solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=nx)
         exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=nx)
         err = np.mean(np.abs(roe.rho - exact.rho))
         assert err < previous
@@ -161,7 +161,7 @@ def test_accuracy_ordering_on_sod():
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
     err = {}
     for name in ("roe", "hllc", "hll", "rusanov", "lax_friedrichs"):
-        sol = solve_roe(
+        sol = solve(
             prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux=name
         )
         err[name] = np.mean(np.abs(sol.rho - exact.rho))
@@ -181,8 +181,8 @@ def test_lax_friedrichs_odd_even_decoupling_disables_the_limiter():
     """
     kwargs = dict(gamma=GAMMA, w_l=[1.0, 0.0, 1.0], w_r=[0.125, 0.0, 0.1],
                   t_end=0.25, nx=200, flux="lax_friedrichs")
-    second = solve_roe(second_order=True, **kwargs)
-    first = solve_roe(second_order=False, **kwargs)
+    second = solve(second_order=True, **kwargs)
+    first = solve(second_order=False, **kwargs)
     assert np.max(np.abs(second.rho - first.rho)) < 1e-12
     # The signature of the decoupling: adjacent cells agree in pairs.  Which
     # of the two phases the pairs start on depends on where the diaphragm
@@ -191,8 +191,8 @@ def test_lax_friedrichs_odd_even_decoupling_disables_the_limiter():
     odd = np.max(np.abs(first.rho[1:-1:2] - first.rho[2::2]))
     assert min(even, odd) < 1e-12
     # A local-dissipation flux does not do this.
-    rus = solve_roe(**{**kwargs, "flux": "rusanov"}, second_order=True)
-    rus1 = solve_roe(**{**kwargs, "flux": "rusanov"}, second_order=False)
+    rus = solve(**{**kwargs, "flux": "rusanov"}, second_order=True)
+    rus1 = solve(**{**kwargs, "flux": "rusanov"}, second_order=False)
     assert np.max(np.abs(rus.rho - rus1.rho)) > 1e-3
 
 
@@ -218,7 +218,7 @@ def test_entropy_fix_removes_the_sonic_glitch():
             x_diaphragm=prob.x_diaphragm,
         )
         for fix in (True, False):
-            roe = solve_roe(nx=nx, entropy_fix=fix, **kwargs)
+            roe = solve(nx=nx, entropy_fix=fix, **kwargs)
             # Restrict to the rarefaction fan, away from the contact and shock.
             inside = (roe.x > 0.0) & (roe.x < 0.45)
             errors[fix].append(np.max(np.abs(roe.rho - exact.rho)[inside]))
@@ -237,7 +237,7 @@ def test_entropy_fix_removes_the_sonic_glitch():
                                   "sonic_rarefaction", "air_shock_tube"])
 def test_every_runnable_problem_stays_physical(name):
     prob = get_problem(name)
-    roe = solve_roe(
+    roe = solve(
         prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
         x_diaphragm=prob.x_diaphragm,
     )
@@ -252,7 +252,7 @@ def test_robust_fluxes_run_every_problem(name):
     Including Toro's Test 2, the near-vacuum case where Roe fails outright.
     """
     for prob in PROBLEMS.values():
-        sol = solve_roe(
+        sol = solve(
             prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
             x_diaphragm=prob.x_diaphragm, flux=name,
         )
@@ -270,7 +270,7 @@ def test_toro2_fails_as_documented():
     prob = get_problem("toro2")
     assert prob.flux_note, "toro2 must carry an explanatory note"
     with pytest.raises(FloatingPointError, match="non-physical state"):
-        solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
+        solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200)
 
 
 # --------------------------------------------------------------------------- #
@@ -280,20 +280,76 @@ def test_toro2_fails_as_documented():
 def test_invalid_arguments_are_rejected():
     w_l, w_r = np.array([1.0, 0.0, 1.0]), np.array([0.125, 0.0, 0.1])
     with pytest.raises(ValueError, match="t_end"):
-        solve_roe(1.4, w_l, w_r, 0.0)
+        solve(1.4, w_l, w_r, 0.0)
     with pytest.raises(ValueError, match="nx"):
-        solve_roe(1.4, w_l, w_r, 0.1, nx=2)
+        solve(1.4, w_l, w_r, 0.1, nx=2)
     with pytest.raises(ValueError, match="cfl"):
-        solve_roe(1.4, w_l, w_r, 0.1, cfl=1.5)
+        solve(1.4, w_l, w_r, 0.1, cfl=1.5)
     with pytest.raises(ValueError, match="positive density"):
-        solve_roe(1.4, np.array([0.0, 0.0, 1.0]), w_r, 0.1)
+        solve(1.4, np.array([0.0, 0.0, 1.0]), w_r, 0.1)
 
 @pytest.mark.parametrize("name", ALL_FLUXES)
 def test_labels_are_distinct_and_descriptive(name):
-    sol = solve_roe(GAMMA, [1.0, 1.0, 1.0], [0.5, 1.0, 0.8], 0.05, nx=32, flux=name)
+    sol = solve(GAMMA, [1.0, 1.0, 1.0], [0.5, 1.0, 0.8], 0.05, nx=32, flux=name)
     assert sol.flux == name
     assert "order" in sol.label
 
 def test_ghost_cell_count_is_enough_for_the_limiter_stencil():
     """The limiter reads one interface beyond the first interior interface."""
     assert N_GHOST >= 2
+
+
+# --------------------------------------------------------------------------- #
+# The time step
+# --------------------------------------------------------------------------- #
+
+
+def test_max_signal_speed_reports_a_bad_cell_rather_than_dividing_by_it():
+    """A zero-density cell must be reported, not divided by.
+
+    Forming the velocity and the pressure both divide by the density, so the
+    positivity test has to come *before* them.  Regression: it used to come
+    after, so a cell driven to zero density raised ``ZeroDivisionError`` from
+    inside the kernel instead of returning the sentinel and letting the
+    solver issue its own positivity report.  The shallow-water twin of this
+    function has always skipped dry cells for the same reason.
+    """
+    u = np.tile(np.array([1.0, 0.0, 2.5]), (2 * N_GHOST + 4, 1))
+    healthy = _max_signal_speed(u, GAMMA, N_GHOST)
+    assert healthy > 0.0
+
+    u[N_GHOST + 1, 0] = 0.0
+    assert _max_signal_speed(u, GAMMA, N_GHOST) == -1.0
+
+
+def test_max_signal_speed_does_not_let_a_nan_through():
+    """A NaN must fail the guard rather than reach the square root.
+
+    The tests are written ``not (x > 0.0)`` rather than ``x <= 0.0`` exactly
+    so this holds, and ``nnan`` is kept out of the fast-math set so the
+    compiler cannot discard the comparison (see ``tests/core/test_jit.py``).
+    """
+    u = np.tile(np.array([1.0, 0.0, 2.5]), (2 * N_GHOST + 4, 1))
+    u[N_GHOST + 1, 0] = np.nan
+    assert _max_signal_speed(u, GAMMA, N_GHOST) == -1.0
+
+    u = np.tile(np.array([1.0, 0.0, 2.5]), (2 * N_GHOST + 4, 1))
+    u[N_GHOST + 2, 2] = np.nan      # NaN energy, hence NaN pressure
+    assert _max_signal_speed(u, GAMMA, N_GHOST) == -1.0
+
+
+def test_a_positivity_failure_is_reported_not_raised_as_arithmetic():
+    """The near-vacuum problem must fail through the solver's own report.
+
+    ``toro2`` drives the density to zero under the Roe flux.  That is a
+    documented breakdown, and the CLI depends on it arriving as a
+    ``FloatingPointError`` it can catch and explain -- a bare
+    ``ZeroDivisionError`` from inside a kernel would escape as a traceback.
+    """
+    prob = get_problem("toro2")
+    with pytest.raises(FloatingPointError, match="non-physical state"):
+        solve(
+            prob.gamma, prob.left, prob.right, prob.t_end,
+            x_left=prob.x_left, x_right=prob.x_right,
+            x_diaphragm=prob.x_diaphragm, nx=200, flux="roe",
+        )

@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from src import plot_comparison, save_figure, solve_exact, solve_roe
+from src import plot_comparison, save_figure, solve_exact, solve
 
 gamma, t_end, nx = 1.4, 0.25, 100
 w_left, w_right = [1.0, 0.0, 1.0], [0.125, 0.0, 0.1]
@@ -37,7 +37,7 @@ configs = [
 runs = []
 print(f"{'configuration':<24} {'L1 (rho)':>12} {'steps':>7}")
 for overrides, label in configs:
-    roe = solve_roe(gamma, w_left, w_right, t_end, nx=nx, **overrides)
+    roe = solve(gamma, w_left, w_right, t_end, nx=nx, **overrides)
     err = np.mean(np.abs(roe.rho - reference.rho))
     print(f"{label:<24} {err:>12.4e} {roe.steps:>7d}")
     runs.append((roe, label))

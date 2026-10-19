@@ -44,7 +44,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..core.jit import njit
-from .physics import DRY_TOLERANCE, GRAVITY
+from .physics import DRY_TOLERANCE, GRAVITY, check_gravity
 
 __all__ = ["ShallowWaterSolution", "depth_function", "solve_star_depth", "solve_exact"]
 
@@ -116,6 +116,7 @@ def is_dry_bed(w_l, w_r, gravity=GRAVITY):
     ``u_R - u_L >= 2 (a_L + a_R)`` -- the shallow-water counterpart of the
     vacuum condition for a gas.
     """
+    gravity = check_gravity(gravity)
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
     if w_l[0] <= DRY_TOLERANCE or w_r[0] <= DRY_TOLERANCE:
@@ -132,6 +133,7 @@ def solve_star_depth(w_l, w_r, gravity=GRAVITY, tol=1.0e-12, max_iter=100):
     dry-generating, since then no star region exists; callers should test
     with :func:`is_dry_bed` first, as :func:`solve_exact` does.
     """
+    gravity = check_gravity(gravity)
     w_l = np.asarray(w_l, dtype=float)
     w_r = np.asarray(w_r, dtype=float)
     if is_dry_bed(w_l, w_r, gravity):
@@ -372,6 +374,7 @@ def solve_exact(
     -------
     ShallowWaterSolution
     """
+    gravity = check_gravity(gravity)
     if t <= 0.0:
         raise ValueError("output time t must be positive")
     w_l = np.asarray(w_l, dtype=float)

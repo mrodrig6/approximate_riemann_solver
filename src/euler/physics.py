@@ -23,6 +23,7 @@ import numpy as np
 from ..core.jit import njit
 
 __all__ = [
+    "check_gamma",
     "primitive_to_conservative",
     "conservative_to_primitive",
     "pressure",
@@ -31,6 +32,29 @@ __all__ = [
     "euler_flux",
     "specific_internal_energy",
 ]
+
+
+def check_gamma(gamma):
+    """Validate the ratio of specific heats and return it as a float.
+
+    ``gamma > 1`` is not a nicety.  The closure divides by ``gamma - 1``
+    throughout -- the internal energy, the exact solver's rarefaction
+    relations, the vacuum condition -- so ``gamma = 1`` divides by zero, and
+    ``gamma < 1`` makes the internal energy negative while leaving every
+    formula arithmetically valid.
+
+    Without this check the failure surfaced far from its cause: ``gamma = 1``
+    produced an infinite total energy, and the time loop then reported a
+    non-physical state and blamed the *flux*, advising a different one when
+    no flux would have helped.
+    """
+    gamma = float(gamma)
+    if not (gamma > 1.0):
+        raise ValueError(
+            f"gamma must be greater than 1, got {gamma!r}; the closure divides "
+            f"by gamma - 1 (1.4 for air, 5/3 for a monatomic gas)"
+        )
+    return gamma
 
 
 # --------------------------------------------------------------------------- #

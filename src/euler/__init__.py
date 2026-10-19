@@ -57,16 +57,16 @@ from .problems import (
     get_problem,
     list_problems,
 )
-from .solver import RoeSolution, solve_field, solve_roe
+from .solver import EulerResult, solve, solve_field
 
 __all__ = [
+    "EulerResult",
     "ExactSolution",
     "FLUXES",
     "FLUX_NAMES",
     "PROBLEMS",
     "ROBUST_FLUXES",
     "RiemannProblem",
-    "RoeSolution",
     "acoustic_pulse",
     "ader2_fluxes",
     "advected_pulse",
@@ -81,9 +81,9 @@ __all__ = [
     "primitive_to_conservative",
     "roe_average",
     "sample_exact",
+    "solve",
     "solve_exact",
     "solve_field",
-    "solve_roe",
     "solve_star_pressure",
     "sound_speed",
 ]

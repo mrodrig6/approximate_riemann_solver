@@ -1,7 +1,8 @@
 """Command-line interface: ``python -m src``.
 
 Runs one of the built-in test problems (or a custom left/right state) with both
-the exact and the Roe solver, prints a short error report and optionally writes
+the exact and the numerical solver, prints a short error report and optionally
+writes
 a comparison figure.
 """
 
@@ -18,7 +19,7 @@ from .euler.exact import solve_exact
 from .euler.fluxes import FLUX_NAMES, ROBUST_FLUXES, flux_code
 from .core.limiters import LIMITERS
 from .euler.problems import get_problem, list_problems
-from .euler.solver import solve_roe
+from .euler.solver import solve
 
 
 def build_parser():
@@ -157,7 +158,7 @@ def main(argv=None):
     print(f"wave pattern   : left {exact.left_wave}, contact, right {exact.right_wave}")
 
     try:
-        roe = solve_roe(
+        sol = solve(
             problem.gamma,
             problem.left,
             problem.right,
@@ -174,11 +175,9 @@ def main(argv=None):
             entropy_fix=not args.no_entropy_fix,
         )
     except FloatingPointError as exc:
-        # A documented breakdown of the method (see `roe_note`) should report
-        # itself clearly rather than looking like a crash in the port.
-        # A documented breakdown of the method should report itself clearly.
-        # The problem's own note is printed here, where it is always relevant,
-        # rather than ahead of every run.
+        # A documented breakdown of the method should report itself clearly
+        # rather than looking like a crash.  The problem's own note is printed
+        # here, where it is always relevant, rather than ahead of every run.
         print(f"\nnumerical run FAILED:\n{exc}", file=sys.stderr)
         if problem.flux_note:
             print(f"\nnote on this problem:\n{problem.flux_note}", file=sys.stderr)
@@ -187,8 +186,8 @@ def main(argv=None):
             print(f"\nfluxes that run every built-in problem: {robust}",
                   file=sys.stderr)
         return 1
-    print(f"\nnumerical run  : {roe.label}, nx = {args.nx}, CFL = {roe.cfl}")
-    print(f"                 {roe.steps} steps to t = {roe.t:g}")
+    print(f"\nnumerical run  : {sol.label}, nx = {args.nx}, CFL = {sol.cfl}")
+    print(f"                 {sol.steps} steps to t = {sol.t:g}")
 
     # Error against the exact solution, sampled on the *numerical* grid so the
     # comparison is cell-to-cell rather than interpolated.
@@ -204,7 +203,7 @@ def main(argv=None):
     )
     print("\nerror vs exact (on the numerical grid):")
     for field in ("rho", "u", "p", "e"):
-        num = getattr(roe, field)
+        num = getattr(sol, field)
         ref = getattr(exact_on_grid, field)
         scale = max(np.max(np.abs(ref)), 1.0e-30)
         l1 = np.mean(np.abs(num - ref))
@@ -215,7 +214,7 @@ def main(argv=None):
 
         fig, _ = plot_comparison(
             exact=exact,
-            numerical=[roe],
+            numerical=[sol],
             title=f"{problem.name}: {problem.description}  (t = {t_end:g})",
             dimensional=args.dimensional,
         )

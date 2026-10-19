@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure the Numba speed-up on the Roe solver.
+"""Measure the Numba speed-up on the Euler solver.
 
 Run twice to see both backends::
 
@@ -19,7 +19,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import get_problem, solve_roe  # noqa: E402
+from src import get_problem, solve  # noqa: E402
 from src.core.jit import HAVE_NUMBA, numba_version  # noqa: E402
 
 JIT_ON = HAVE_NUMBA and os.environ.get("NUMBA_DISABLE_JIT") != "1"
@@ -33,14 +33,14 @@ def main():
     # First call pays the compilation cost; report it separately so the
     # per-run timings are not polluted by it.
     t0 = time.perf_counter()
-    solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=64)
+    solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=64)
     warmup = time.perf_counter() - t0
     print(f"warm-up (includes JIT compilation): {warmup:7.3f} s\n")
 
     print(f"{'cells':>7} {'steps':>7} {'time (s)':>10} {'us/cell/step':>14}")
     for nx in (200, 400, 800, 1600):
         t0 = time.perf_counter()
-        roe = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=nx)
+        roe = solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=nx)
         elapsed = time.perf_counter() - t0
         per = 1e6 * elapsed / (nx * roe.steps)
         print(f"{nx:>7} {roe.steps:>7} {elapsed:>10.4f} {per:>14.3f}")

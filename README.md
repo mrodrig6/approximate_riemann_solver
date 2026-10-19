@@ -35,7 +35,7 @@ chapter and equation number it comes from.
   dimensional (SI) air shock tube.
 - **Numba acceleration**, roughly 100× over pure Python, with a transparent
   fallback when Numba is not installed.
-- **232 tests** checking the solvers against Toro's published values and
+- **263 tests** checking the solvers against Toro's published values and
   against their own defining identities (the Roe U-property, the AUSM+ split
   identities, Sweby's TVD region, exact contact preservation, exact
   conservation).
@@ -83,7 +83,7 @@ backend        : numba 0.68.0
 exact solution : p* = 0.30313018, u* = 0.92745262 (4 Newton iterations)
 wave pattern   : left rarefaction, contact, right shock
 
-Roe run        : Roe, 2nd order, superbee, nx = 200, CFL = 0.9
+numerical run  : Roe, 2nd order, superbee, nx = 200, CFL = 0.9
                  122 steps to t = 0.25
 
 error vs exact (on the numerical grid):
@@ -98,7 +98,7 @@ figure written to sod.png
 The same thing from Python:
 
 ```python
-from src import solve_exact, solve_roe, plot_comparison, save_figure
+from src import solve_exact, solve, plot_comparison, save_figure
 
 gamma = 1.4
 w_left  = [1.000, 0.0, 1.0]   # [rho, u, p]
@@ -106,8 +106,8 @@ w_right = [0.125, 0.0, 0.1]
 t_end   = 0.25
 
 exact = solve_exact(gamma, w_left, w_right, t_end, n=2000)
-roe   = solve_roe(gamma, w_left, w_right, t_end, nx=200, limiter="superbee")
-hllc  = solve_roe(gamma, w_left, w_right, t_end, nx=200, flux="hllc")
+roe   = solve(gamma, w_left, w_right, t_end, nx=200, limiter="superbee")
+hllc  = solve(gamma, w_left, w_right, t_end, nx=200, flux="hllc")
 
 print(f"p* = {exact.p_star:.6f}, u* = {exact.u_star:.6f}")
 
@@ -255,18 +255,29 @@ More, including grid convergence and all of Toro's tests, in
 
 ## Performance
 
-Measured with `scripts/benchmark.py` on Sod's problem:
+Measured with `scripts/benchmark.py` on Sod's problem, on one machine — the
+Numba row in particular is hardware-dependent, so re-run it rather than trust
+it:
 
 | Backend | Time per cell per step | 1600 cells, 975 steps |
 | --- | --- | --- |
-| Numba | 0.29 µs | 0.45 s |
-| Pure Python | 29.7 µs | 46.3 s |
+| Numba | 0.52 µs | 0.81 s |
+| Pure Python | 28.0 µs | 43.7 s |
+
+about a 54x speed-up for the compiled kernels.
 
 Numba is optional. `src/core/jit.py` degrades `njit` to a no-op decorator when
 Numba is absent, so the identical source runs either way; the test suite is
 run under both (`NUMBA_DISABLE_JIT=1 pytest`) to keep the fallback honest.
 Compiled kernels are cached to `__pycache__`, so the ~1 s compilation cost is
 paid once per machine rather than once per process.
+
+The kernels are compiled with most of LLVM's fast-math relaxations but
+deliberately **not** `nnan` and `ninf`, which would licence the compiler to
+assume no value is ever a NaN or an infinity. The positivity guards in the
+solvers are written so that a NaN fails them, and granting those two would let
+the compiler discard exactly those comparisons. Dropping them costs nothing
+measurable; `src/core/jit.py` says more.
 
 ---
 
@@ -306,7 +317,7 @@ src/
 docs/                 formulation, flux functions, validation, figures
 examples/             five runnable examples
 scripts/              figure generation and benchmarking
-tests/                232 pytest tests, mirroring src/ directory for directory
+tests/                263 pytest tests, mirroring src/ directory for directory
 ```
 
 The two systems hold the same modules under the same names, each with the same

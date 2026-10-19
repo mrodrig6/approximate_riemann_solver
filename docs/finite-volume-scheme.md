@@ -11,6 +11,29 @@ are set, and how the scheme is lifted from first to second order.
 
 ---
 
+## 0. Two entry points
+
+Both systems expose the same pair, and the difference is the initial data
+rather than the scheme:
+
+| Function | Initial data | Use |
+| --- | --- | --- |
+| `solve(gamma, w_l, w_r, t_end, ...)` | two constant states and a diaphragm position | a Riemann problem |
+| `solve_field(gamma, w_init, t_end, ...)` | an arbitrary field, one primitive state per cell | anything else |
+
+`solve` is a thin wrapper: it builds the two-state field and hands it to
+`solve_field`. The general one is what makes an order-of-accuracy study
+possible, since measuring a formal order needs *smooth* data — see
+[ader.md](ader.md#3-order-of-accuracy).
+
+Neither is tied to a particular flux. `flux=` selects any of the six, and
+`scheme="ader2"` replaces the flux-limited correction described below with
+the one-step scheme of [ader.md](ader.md), under which no numerical flux is
+evaluated at all. (The Euler pair was called `solve_roe` and `RoeSolution`
+until the solver grew past Roe; the names now match the shallow-water ones.)
+
+---
+
 ## 1. The conservative update
 
 Whichever flux of [flux-functions.md](flux-functions.md) is chosen, it enters

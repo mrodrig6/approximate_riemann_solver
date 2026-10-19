@@ -203,10 +203,10 @@ because those *are* the equations.
 
 | Module | Owns | Imports |
 | --- | --- | --- |
-| `core/jit.py` | `njit`, and the no-op fallback when Numba is absent | nothing |
+| `core/jit.py` | `njit`, the no-op fallback when Numba is absent, and the fast-math flag set | nothing |
 | `core/limiters.py` | the four limiter functions, by integer code | `core/jit.py` |
 | `core/plotting.py` | figure layout, mathtext labels, saving | nothing at import time |
-| `euler/physics.py` | ideal-gas EOS, `U` and `W` conversions, `F(U)` | `core/jit.py` |
+| `euler/physics.py` | ideal-gas EOS, `U` and `W` conversions, `F(U)`, `check_gamma` | `core/jit.py` |
 | `euler/exact.py` | the pressure function, Newton iteration, sampling | `physics` |
 | `euler/fluxes/registry.py` | the flux name-to-code table, `ROBUST_FLUXES` | nothing |
 | `euler/fluxes/roe.py` | Roe average, eigenstructure, Harten-Hyman fix | `physics` |
@@ -217,7 +217,7 @@ because those *are* the equations.
 | `euler/ader.py` | the derivative Riemann problem and the ADER flux | `fluxes/hll.py`, `physics`, `limiters` |
 | `euler/solver.py` | the time loop, CFL, ghost cells, scheme choice | `ader`, `fluxes`, `physics`, `limiters` |
 | `euler/problems.py` | the problem catalogue | nothing |
-| `shallow_water/physics.py` | depth-averaged variables, celerity, `F(U)` | `core/jit.py` |
+| `shallow_water/physics.py` | depth-averaged variables, celerity, `F(U)`, `check_gravity` | `core/jit.py` |
 | `shallow_water/exact.py` | depth function, Stoker and Ritter solutions | `physics` |
 | `shallow_water/fluxes/registry.py` | the flux name-to-code table, `ROBUST_FLUXES` | nothing |
 | `shallow_water/fluxes/roe.py` | Roe average, eigenstructure, entropy fix, dry fallback | `physics`, `fluxes/hll.py` |
@@ -260,7 +260,7 @@ two systems' suites can be read side by side:
 ```
 tests/
   test_cli.py
-  core/            test_limiters.py
+  core/            test_jit.py test_limiters.py
   euler/           test_physics.py test_exact.py test_fluxes.py
                    test_ader.py test_solver.py test_problems.py
   shallow_water/   test_physics.py test_exact.py test_fluxes.py

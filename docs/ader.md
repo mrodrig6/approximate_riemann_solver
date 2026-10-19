@@ -6,7 +6,7 @@
 > problem and the Cauchy–Kovalewski procedure).
 
 ```python
-solve_roe(gamma, w_l, w_r, t_end, nx=200, scheme="ader2")
+solve(gamma, w_l, w_r, t_end, nx=200, scheme="ader2")
 ```
 
 ---
@@ -138,9 +138,47 @@ structure and the route to higher order, not the constant.
   higher-degree reconstruction; the structure below is arranged for it but
   it is not implemented.
 - **The linear reconstruction can go non-physical** on a very strong jump
-  before the limiter catches it. The implementation falls back to the cell
-  averages at such an interface, and `limiter="minmod"` is the safe choice
-  on Toro's tests 3 to 5.
+  before the limiter catches it. A boundary-extrapolated state with zero
+  density or negative pressure cannot be fed to the wave model at all — it
+  divides by the density to form the velocity and takes the square root of
+  the pressure to form the sound speed — so the implementation checks the
+  extrapolated states and falls back to the cell averages at such an
+  interface.
+- **Which problems it runs is narrower than the TVD scheme's.** It runs
+  `sod`, `toro3`, `toro4`, `sonic_rarefaction` and `air_shock_tube` with
+  every limiter, and fails on `toro2` and `toro5` with every limiter. The
+  limiter does not decide the outcome either way, so no limiter choice
+  rescues those two; use `scheme="tvd"` with `flux="hllc"` for them. A
+  failure is reported as a `FloatingPointError` naming the step and the time.
+
+  The two failures have **different causes**, and only the first is a
+  property of the scheme:
+
+  - `toro2`, the near-vacuum "123 problem", is the expected one. The
+    predictor adds a correction directly to the conserved variables with no
+    positivity constraint, so nothing stops an update leaving the physical
+    state space when the star-region pressure is $1.9 \times 10^{-3}$.
+    Surviving it needs a positivity-preserving limiter or an a-posteriori
+    first-order fallback, neither of which is implemented here.
+  - `toro5` is a **limitation of this implementation**, not of ADER. It is
+    `toro3` with a uniform $-19.59745$ added to both velocities, and the
+    Euler equations are Galilean invariant, so the two differ only by the
+    frame. Adding a uniform velocity to `toro3` and varying it alone:
+
+| uniform velocity added to `toro3` | ADER2 | TVD |
+| --- | --- | --- |
+| $0$, $-1$ | runs | runs |
+| $-5$ to $-19.6$ | fails | runs |
+| $+19.6$ | runs | runs |
+
+  ADER fails at a shift of $-5$ but survives $+19.6$ of the same magnitude,
+  on physics that is identical in every frame. The likely cause is visible
+  in the source: the TVD correction limits on the **characteristic** wave
+  strengths (`alpha_all[j_up, k] / alpha[k]`, field by field), while the
+  ADER reconstruction in `_limited_slopes` limits **componentwise on the
+  conserved variables**, which is not Galilean invariant. Limiting the
+  reconstruction on primitive or characteristic variables instead is the
+  standard remedy and is not implemented yet.
 - **No entropy fix is applied**, and none is needed: the leading state comes
   from HLLC, which is entropy-satisfying.
 

@@ -1,4 +1,4 @@
-"""Flux limiters for the second-order TVD extension of the Roe scheme.
+"""Flux limiters for the second-order TVD extension of the finite-volume scheme.
 
 Reference: Toro, *Riemann Solvers and Numerical Methods for Fluid Dynamics*
 (3rd ed.), Chapter 13 ("High-Order and TVD Methods for Scalar Equations"),

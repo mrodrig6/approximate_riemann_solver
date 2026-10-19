@@ -28,6 +28,7 @@ from ..core.jit import njit
 from ..core.limiters import LIMITER_NAMES, limiter_code
 from .fluxes import FLUX_NAMES, flux_code, interface_fluxes
 from .physics import (
+    check_gravity,
     DRY_TOLERANCE,
     GRAVITY,
     conservative_to_primitive,
@@ -251,7 +252,7 @@ def solve_field(
 
     code = limiter_code(limiter)
     fcode = flux_code(flux)
-    gravity = float(gravity)
+    gravity = check_gravity(gravity)
 
     dx = (x_right - x_left) / nx
     x = x_left + dx * (np.arange(nx) + 0.5)

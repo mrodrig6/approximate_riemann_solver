@@ -144,7 +144,7 @@ def plot_comparison(
     xlabel="$x$",
     figsize=(9.0, 6.4),
 ):
-    """Four-panel comparison of an exact solution and one or more Roe runs.
+    """Four-panel comparison of an exact solution and one or more numerical runs.
 
     Parameters
     ----------
@@ -152,7 +152,7 @@ def plot_comparison(
         Reference solution, drawn as a continuous neutral-ink line.  It is the
         baseline, so it is deliberately *not* given a categorical colour.
     numerical : sequence
-        Zero or more :class:`~src.euler.solver.RoeSolution` objects, or
+        Zero or more :class:`~src.euler.solver.EulerResult` objects, or
         ``(solution, label)`` pairs to override the automatic label.  Drawn as
         open markers so that cell values are visible as discrete samples --
         which is what they are -- and so the series remain distinguishable

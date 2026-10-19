@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src import get_problem, solve_exact, solve_roe
+from src import get_problem, solve_exact, solve
 from src.euler.fluxes import (
     FLUXES,
     ausm_up_flux,
@@ -240,7 +240,7 @@ def test_contact_preserving_fluxes_are_exact_on_a_stationary_contact(name):
     A contact has uniform ``u`` and ``p`` and a jump only in ``rho``.  A flux
     that resolves the middle wave leaves it untouched for all time.
     """
-    sol = solve_roe(
+    sol = solve(
         GAMMA, [1.0, 0.0, 1.0], [0.125, 0.0, 1.0], 0.4, nx=100,
         flux=name, second_order=False,
     )
@@ -257,7 +257,7 @@ def test_two_wave_fluxes_smear_a_stationary_contact(name):
     The complement of the test above: it documents the real cost of dropping
     the contact from the approximate wave structure.
     """
-    sol = solve_roe(
+    sol = solve(
         GAMMA, [1.0, 0.0, 1.0], [0.125, 0.0, 1.0], 0.4, nx=100,
         flux=name, second_order=False,
     )
@@ -273,7 +273,7 @@ def test_moving_contact_keeps_pressure_constant(name):
     about 1.5 per step until the pressure error reached 50%.  With the
     coefficients adapted from EMS it passes to machine precision.
     """
-    sol = solve_roe(
+    sol = solve(
         GAMMA, [1.0, 1.0, 1.0], [0.125, 1.0, 1.0], 0.3, nx=100,
         flux=name, second_order=False,
     )
@@ -288,8 +288,8 @@ def test_hllc_solves_the_problem_roe_cannot():
     """Toro's Test 2 is the headline case for a positivity-preserving flux."""
     prob = get_problem("toro2")
     with pytest.raises(FloatingPointError):
-        solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="roe")
-    sol = solve_roe(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="hllc")
+        solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="roe")
+    sol = solve(prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="hllc")
     exact = solve_exact(prob.gamma, prob.left, prob.right, prob.t_end, n=200)
     # The star region is near vacuum, so judge on a relative error.
     rel = np.mean(np.abs(sol.rho - exact.rho)) / np.max(exact.rho)
@@ -305,7 +305,7 @@ def test_ausm_up_starts_from_rest():
     being dropped or mis-scaled.
     """
     prob = get_problem("sod")
-    sol = solve_roe(
+    sol = solve(
         prob.gamma, prob.left, prob.right, prob.t_end, nx=200, flux="ausmup"
     )
     assert np.all(sol.p > 0)
@@ -323,7 +323,7 @@ def test_ausm_up_runs_every_problem_at_first_order():
     from src.euler.problems import PROBLEMS
 
     for prob in PROBLEMS.values():
-        sol = solve_roe(
+        sol = solve(
             prob.gamma, prob.left, prob.right, prob.t_end, nx=200,
             x_diaphragm=prob.x_diaphragm, flux="ausmup", second_order=False,
         )

@@ -226,7 +226,7 @@ and Sod's without any tuning — here in 3 Newton iterations.
 pytest
 ```
 
-232 tests covering, among others:
+263 tests covering, among others:
 
 - star-region values against Toro's Table 4.1 for all five of his test
   problems;

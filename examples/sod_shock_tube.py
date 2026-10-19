@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from src import plot_comparison, save_figure, solve_exact, solve_roe
+from src import plot_comparison, save_figure, solve_exact, solve
 
 # ---------------------------------------------------------------------------
 # Problem definition.
@@ -29,7 +29,7 @@ gamma = 1.4                     # ratio of specific heats
 w_left = [1.000, 0.0, 1.0]      # [rho, u, p] to the left of the diaphragm
 w_right = [0.125, 0.0, 0.1]     # [rho, u, p] to the right
 t_end = 0.25                    # output time
-nx = 200                        # finite-volume cells for the Roe solver
+nx = 200                        # finite-volume cells for the numerical solver
 
 # ---------------------------------------------------------------------------
 # Exact solution.  Sampled finely (2000 points) because it costs nothing and
@@ -45,7 +45,7 @@ print(f"Newton iterations       : {exact.iterations}")
 # Numerical solution: Roe's approximate solver, second order with the superbee
 # limiter and the Harten-Hyman entropy fix (both on by default).
 # ---------------------------------------------------------------------------
-roe = solve_roe(gamma, w_left, w_right, t_end, nx=nx, cfl=0.9, limiter="superbee")
+roe = solve(gamma, w_left, w_right, t_end, nx=nx, cfl=0.9, limiter="superbee")
 print(f"\n{roe.label}: {roe.steps} steps to t = {roe.t}")
 
 # ---------------------------------------------------------------------------
