@@ -69,7 +69,7 @@ pytest
 The quickest thing to run is Sod's shock tube, from the command line:
 
 ```bash
-python -m riemann sod --plot sod.png
+python -m src sod --plot sod.png
 ```
 
 ```
@@ -98,7 +98,7 @@ figure written to sod.png
 The same thing from Python:
 
 ```python
-from riemann import solve_exact, solve_roe, plot_comparison, save_figure
+from src import solve_exact, solve_roe, plot_comparison, save_figure
 
 gamma = 1.4
 w_left  = [1.000, 0.0, 1.0]   # [rho, u, p]
@@ -118,14 +118,14 @@ save_figure(fig, "sod.png")
 ### More to try
 
 ```bash
-python -m riemann --help                # all options, problems and fluxes
-python -m riemann sod --flux hllc       # a different numerical flux
-python -m riemann sod --scheme ader2    # the one-step ADER scheme
-python -m riemann toro2 --flux hllc     # the near-vacuum case Roe cannot run
-python -m riemann toro4 --nx 400        # two colliding strong shocks
-python -m riemann sod --first-order     # drop the TVD correction, see the difference
-python -m riemann sod --limiter minmod  # a more diffusive limiter
-python -m riemann air_shock_tube --dimensional --plot air.png
+python -m src --help                # all options, problems and fluxes
+python -m src sod --flux hllc       # a different numerical flux
+python -m src sod --scheme ader2    # the one-step ADER scheme
+python -m src toro2 --flux hllc     # the near-vacuum case Roe cannot run
+python -m src toro4 --nx 400        # two colliding strong shocks
+python -m src sod --first-order     # drop the TVD correction, see the difference
+python -m src sod --limiter minmod  # a more diffusive limiter
+python -m src air_shock_tube --dimensional --plot air.png
 ```
 
 Three worked examples, each runnable directly:
@@ -262,7 +262,7 @@ Measured with `scripts/benchmark.py` on Sod's problem:
 | Numba | 0.29 µs | 0.45 s |
 | Pure Python | 29.7 µs | 46.3 s |
 
-Numba is optional. `riemann/_jit.py` degrades `njit` to a no-op decorator when
+Numba is optional. `src/core/jit.py` degrades `njit` to a no-op decorator when
 Numba is absent, so the identical source runs either way; the test suite is
 run under both (`NUMBA_DISABLE_JIT=1 pytest`) to keep the fallback honest.
 Compiled kernels are cached to `__pycache__`, so the ~1 s compilation cost is
@@ -273,41 +273,63 @@ paid once per machine rather than once per process.
 ## Repository layout
 
 ```
-riemann/
-  thermo.py             equation of state, variable conversions, Euler flux
-  exact.py              exact Riemann solver
-  fluxes/
-    roe.py                Roe average, eigenstructure, Roe flux, entropy fix
-    hll.py                Einfeldt wave speeds, HLL, HLLC
-    ausm.py               split polynomials, AUSM+-up
-    central.py            Rusanov, Lax-Friedrichs
-    interface.py          flux dispatch and the second-order TVD term
-    registry.py           flux names and codes
-  ader.py               the one-step ADER scheme
-  limiters.py           superbee, minmod, van Leer, van Albada (shared)
-  solver.py             finite-volume driver, CFL, boundary conditions
-  problems.py           test problems
-  shallow_water/
-    physics.py            variables, flux, Roe average, eigenstructure
+src/
+  core/                 machinery that knows about neither system
+    jit.py                optional-Numba shim
+    limiters.py           superbee, minmod, van Leer, van Albada
+    plotting.py           four-panel comparison figures
+  euler/                the 1-D Euler equations
+    physics.py            equation of state, variable conversions, Euler flux
+    exact.py              exact Riemann solver
+    fluxes/
+      registry.py           flux names and codes
+      roe.py                Roe average, eigenstructure, Roe flux, entropy fix
+      hll.py                Einfeldt wave speeds, HLL, HLLC
+      ausm.py               split polynomials, AUSM+-up
+      central.py            Rusanov, Lax-Friedrichs
+      interface.py          flux dispatch and the second-order TVD term
+    ader.py               the one-step ADER scheme
+    solver.py             finite-volume driver, CFL, boundary conditions
+    problems.py           test problems
+  shallow_water/        the shallow-water equations
+    physics.py            depth-averaged variables, celerity, the flux
     exact.py              exact solver, wet and dry bed
-    fluxes.py             Roe, HLL, Rusanov, Lax-Friedrichs; TVD term
-    solver.py             finite-volume driver
+    fluxes/
+      registry.py           flux names and codes
+      roe.py                Roe average, eigenstructure, entropy fix, dry fallback
+      hll.py                wave speeds with dry-bed handling, HLL
+      central.py            Rusanov, Lax-Friedrichs
+      interface.py          flux dispatch and the second-order TVD term
+    solver.py             finite-volume driver, wet/dry handling
     problems.py           dam-break problems
-  plotting.py           four-panel comparison figures
-  cli.py                python -m riemann
-  _jit.py               optional-Numba shim
+  cli.py                python -m src
 docs/                 formulation, flux functions, validation, figures
 examples/             five runnable examples
 scripts/              figure generation and benchmarking
-tests/                232 pytest tests, mirroring the package layout
-matlab_legacy/        archived MATLAB implementation
+tests/                232 pytest tests, mirroring src/ directory for directory
 ```
+
+The two systems hold the same modules under the same names, each with the same
+job, so a reader who knows one knows where to look in the other. The three
+gaps — no shallow-water HLLC, AUSM+-up or ADER — are differences in the
+equations, not in the code, and
+[docs/architecture.md](docs/architecture.md) says why for each.
+
+Every import points downwards: `core/` knows about neither system, and the two
+systems never import each other. That page also has the import graph, what
+each module owns, and where a new flux, limiter, scheme or system of equations
+goes.
+
+The original MATLAB implementation, which this package was ported from, is
+archived on the
+[`matlab-legacy`](https://github.com/mrodrig6/approximate_riemann_solver/tree/matlab-legacy)
+branch.
 
 ---
 
 ## Roadmap
 
-- **SLAU** (Shima & Kitamura 2011); `riemann/fluxes/` is arranged so it slots
+- **SLAU** (Shima & Kitamura 2011); `src/euler/fluxes/` is arranged so it slots
   in as another module beside `ausm.py`.
 - **ADER beyond second order**: more Taylor terms in time and a
   higher-degree reconstruction, from the same template.

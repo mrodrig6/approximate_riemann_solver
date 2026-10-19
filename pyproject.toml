@@ -36,14 +36,21 @@ test = ["pytest>=7.0"]
 all = ["numba>=0.57", "matplotlib>=3.5", "pytest>=7.0"]
 
 [project.scripts]
-riemann = "riemann.cli:main"
+riemann = "src.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/mrodrig6/approximate_riemann_solver"
 Documentation = "https://github.com/mrodrig6/approximate_riemann_solver/blob/master/docs/index.md"
 
 [tool.setuptools]
-packages = ["riemann", "riemann.fluxes", "riemann.shallow_water"]
+packages = [
+    "src",
+    "src.core",
+    "src.euler",
+    "src.euler.fluxes",
+    "src.shallow_water",
+    "src.shallow_water.fluxes",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

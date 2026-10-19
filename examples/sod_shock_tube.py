@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from riemann import plot_comparison, save_figure, solve_exact, solve_roe
+from src import plot_comparison, save_figure, solve_exact, solve_roe
 
 # ---------------------------------------------------------------------------
 # Problem definition.

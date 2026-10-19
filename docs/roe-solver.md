@@ -187,7 +187,7 @@ The standard demonstration is Toro's Test 2, the "123 problem"
 $p_{\ast} \approx 0.0019$. In this code:
 
 ```console
-$ python -m riemann toro2
+$ python -m src toro2
 Roe run FAILED:
 Roe scheme produced a non-physical state (negative pressure or density) at step 1 ...
 ```
@@ -203,7 +203,7 @@ i.e. HLLE) or **HLLC**, Toro Chapter 10. Both are implemented — see
 [flux-functions.md](flux-functions.md) — and both run this problem:
 
 ```bash
-python -m riemann toro2 --flux hllc
+python -m src toro2 --flux hllc
 ```
 
 The test suite pins both halves of this: `test_toro2_fails_as_documented` for

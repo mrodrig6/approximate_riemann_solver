@@ -5,7 +5,7 @@
 > solver, Chapters 7–10 for the numerical fluxes.
 
 ```python
-from riemann.shallow_water import get_problem, solve, solve_exact
+from src.shallow_water import get_problem, solve, solve_exact
 
 prob = get_problem("dam_break")
 exact = solve_exact(prob.left, prob.right, prob.t_end)
@@ -167,17 +167,36 @@ correction.
 ## 6. Layout
 
 ```
-riemann/shallow_water/
-  physics.py    variables, physical flux, Roe average, eigenstructure
-  exact.py      exact Riemann solver, wet and dry bed
-  fluxes.py     Roe, HLL, Rusanov, Lax-Friedrichs; dispatch; TVD term
-  solver.py     finite-volume driver, CFL, boundary conditions
-  problems.py   dam-break test problems
+src/shallow_water/
+  physics.py      depth-averaged variables, celerity, the physical flux
+  exact.py        exact Riemann solver, wet and dry bed
+  fluxes/
+    registry.py     flux names and codes
+    roe.py          Roe average, eigenstructure, entropy fix, dry fallback
+    hll.py          wave speeds with dry-bed handling, HLL
+    central.py      Rusanov, Lax-Friedrichs
+    interface.py    flux dispatch and the second-order TVD term
+  solver.py       finite-volume driver, CFL, boundary conditions
+  problems.py     dam-break test problems
 ```
 
-A single `fluxes.py` rather than the one-module-per-family package the Euler
-fluxes use: with two equations and four fluxes the whole thing is shorter
-than any one of those files.
+Module for module the same names and the same jobs as `src/euler/`, so a
+reader who knows one subpackage knows where to look in the other. Three
+Euler modules have no counterpart here, and all three absences are in the
+equations rather than in the code: no `fluxes/ausm.py`, because the AUSM
+family splits the flux by Mach number into convective and pressure parts and
+the `g h^2 / 2` term here *is* the depth rather than a separate thermodynamic
+variable; no HLLC inside `fluxes/hll.py`, for the reason in §4; and no
+`ader.py`, which is unfinished work rather than an obstacle — the derivative
+Riemann problem needs the eigensystem at the Godunov state, and `fluxes/roe.py`
+already supplies it for two fields.
+
+The dependencies run the other way in one place. `fluxes/central.py` and
+`fluxes/roe.py` both import from `fluxes/hll.py`, where their Euler twins
+import only from `physics.py`: Rusanov takes its dissipation coefficient from
+the same wave-speed estimate HLL uses, because that is where the dry-bed
+handling lives, and the Roe flux falls back to HLL at a dry interface. Both
+are the dry bed intruding.
 
 The finite-volume driver is a separate file rather than a shared one. The
 state vector has two components instead of three and the maximum signal

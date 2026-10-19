@@ -1,8 +1,8 @@
-"""The ``python -m riemann`` command-line interface."""
+"""The ``python -m src`` command-line interface."""
 
 from __future__ import annotations
 
-from riemann import cli
+from src import cli
 
 
 def test_cli_runs_and_reports(capsys):

@@ -12,7 +12,7 @@ The conservative update of
 [finite-volume-scheme.md](finite-volume-scheme.md#1-the-conservative-update)
 needs one thing from a Riemann solver: a single flux vector at each cell
 interface. Everything else — the time step, the boundary conditions, the TVD
-correction — is independent of how that flux is formed. `riemann/fluxes/`
+correction — is independent of how that flux is formed. `src/euler/fluxes/`
 therefore treats the flux as a plug-in, one module per family, selected with
 `flux=`:
 
@@ -21,7 +21,7 @@ solve_roe(gamma, w_l, w_r, t_end, nx=200, flux="hllc")
 ```
 
 ```bash
-python -m riemann sod --flux hllc
+python -m src sod --flux hllc
 ```
 
 ---
@@ -188,7 +188,7 @@ guard against the coefficients drifting.
 The **SLAU** scheme (Shima & Kitamura, AIAA J. **49**:1693, 2011) is not
 included: its defining functions $g$ and $\chi$ are not verified here, and
 guessing at a scheme's diffusion functions is exactly the mistake the
-previous section warns against. `riemann/fluxes/` is structured so it slots
+previous section warns against. `src/euler/fluxes/` is structured so it slots
 in as another module beside `ausm.py` when the formulation is to hand.
 
 ## 5. Measured behaviour
@@ -262,7 +262,7 @@ positivity-preserving *as a first-order flux*, and at first order it runs
 correction, which the flux's positivity proof does not cover. "The flux is
 positivity-preserving" and "the scheme is positivity-preserving" are
 different statements, and only `hll`, `hllc` and `lax_friedrichs` are listed
-in `riemann.fluxes.ROBUST_FLUXES`.
+in `src.euler.fluxes.ROBUST_FLUXES`.
 
 **AUSM+-up on `toro2`, `toro3` and `toro5`** is the same story. The flux runs
 *every* built-in problem at first order —
