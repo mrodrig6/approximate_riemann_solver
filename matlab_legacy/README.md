@@ -1,8 +1,15 @@
 # MATLAB implementation (archived)
 
-The original MATLAB sources, kept for provenance. The maintained
-implementation is the Python package in [`../riemann/`](../riemann/); see
-[`../docs/`](../docs/index.md).
+The original MATLAB sources, kept for provenance on this branch alone: they
+were removed from `master`, where the maintained implementation is the Python
+package in
+[`src/`](https://github.com/mrodrig6/approximate_riemann_solver/tree/master/src).
+See the
+[documentation index](https://github.com/mrodrig6/approximate_riemann_solver/blob/master/docs/index.md).
+
+This branch holds nothing else, and is not merged back into `master`. The
+full history of these files is intact, so `git log` and `git log --follow`
+work as they always did.
 
 ```
 main.m                                 driver for Sod's problem
