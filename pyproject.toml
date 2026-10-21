@@ -34,6 +34,16 @@ fast = ["numba>=0.57"]
 plot = ["matplotlib>=3.5"]
 test = ["pytest>=7.0"]
 all = ["numba>=0.57", "matplotlib>=3.5", "pytest>=7.0"]
+docs = ["mkdocs-material>=9.6,<10"]
+dev = [
+    "ruff>=0.11,<1",
+    "codespell>=2.4,<3",
+    "mdformat==0.7.22",
+    "mdformat-gfm==1.0.0",
+    "mdformat-frontmatter==2.1.2",
+    "mdformat-tables==1.0.0",
+    "mdformat-dollarmath==0.0.5",
+]
 
 [project.scripts]
 riemann = "src.cli:main"
@@ -54,3 +64,7 @@ packages = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.codespell]
+skip = ".git,.venv,site,*.egg-info,*.png,*.pdf,__pycache__,.pytest_cache,.ruff_cache"
+ignore-words-list = "ader,ausm,nd,ro"

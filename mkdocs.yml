@@ -1,0 +1,102 @@
+site_name: Approximate Riemann Solver
+site_description: Exact and approximate one-dimensional Euler and shallow-water solvers
+repo_url: https://github.com/mrodrig6/approximate_riemann_solver
+repo_name: mrodrig6/approximate_riemann_solver
+strict: true
+use_directory_urls: false
+hooks:
+  - docs/hooks.py
+exclude_docs: |
+  /hooks.py
+  /figures/*.py
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    unrecognized_links: warn
+    absolute_links: warn
+    anchors: warn
+markdown_extensions:
+  - tables
+  - attr_list
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+extra_javascript:
+  - assets/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - First shock tube: getting-started/quick-start.md
+      - Recipes: getting-started/examples.md
+  - Running:
+      - Command line: running/command-line.md
+      - Configuration: running/configuration.md
+      - Output and plotting: running/output.md
+      - Euler workflows: running/euler.md
+      - Shallow-water workflows: running/shallow-water.md
+      - Performance: running/performance.md
+      - Troubleshooting: running/troubleshooting.md
+  - Python API:
+      - Python API: api/package.md
+      - Extending the package: api/extending.md
+  - Model:
+      - Euler model: model/euler.md
+      - Shallow-water model: model/shallow-water.md
+      - Parameters and notation: model/parameters.md
+      - Problem catalogues: model/problems.md
+  - Method:
+      - Exact-solver algorithms: method/exact-solvers.md
+      - Finite-volume TVD method: method/finite-volume.md
+      - Euler numerical fluxes: method/fluxes.md
+      - ADER2: method/ader.md
+      - Shallow-water numerical method: method/shallow-water.md
+  - Theory:
+      - Exact Euler Riemann solution: theory/exact-euler.md
+      - Roe linearisation and entropy: theory/roe.md
+      - Exact shallow-water solution: theory/exact-shallow-water.md
+  - Validation:
+      - Test suite: validation/tests.md
+      - Sod benchmark: validation/sod.md
+      - Toro reference cases: validation/toro.md
+      - Dimensional shock: validation/dimensional.md
+      - Limiter comparison: validation/limiters.md
+      - Entropy-fix comparison: validation/entropy-fix.md
+      - Convergence: validation/convergence.md
+      - Flux comparison: validation/flux-comparison.md
+      - ADER comparisons: validation/ader.md
+      - Shallow-water validation: validation/shallow-water.md
+  - Reference:
+      - Compatibility: reference/compatibility.md
+      - Code map: reference/code-map.md
+      - Repository map: reference/repository.md
+      - CI checks: reference/ci.md
+      - Documentation maintenance: reference/documentation.md
+      - Limits and future work: reference/limitations.md
+      - References and citation: reference/bibliography.md
