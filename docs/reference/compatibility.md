@@ -79,10 +79,11 @@ The numerical package supports Python 3.9, but the pinned Markdown formatter plu
 the `dev` extra require Python 3.10 or newer. The documented docs/lint/format/spelling
 workflow uses Python 3.12, matching its CI jobs.
 
-Local validation used Linux x86-64 and Python 3.12.14. Other platforms are not asserted
-as locally verified. Plotting uses a headless backend in CI; `--show` requires a
-graphical session. The remaining [limits](limitations.md) include a packaging/API
-version mismatch.
+Local validation used Linux x86-64: Python 3.12.14 passed all 263 tests with Numba and
+with JIT disabled; Python 3.13.5 without Numba passed 262 tests with one expected skip
+for Numba-specific fast-math settings. Other platforms are not asserted as locally
+verified. Plotting uses a headless backend in CI; `--show` requires a graphical session.
+The remaining [limits](limitations.md) include a packaging/API version mismatch.
 
 ## Figure source
 
