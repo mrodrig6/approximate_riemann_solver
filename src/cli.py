@@ -1,6 +1,6 @@
 """Command-line interface: ``python -m src``.
 
-Runs one of the built-in test problems (or a custom left/right state) with both
+Runs one of the built-in Euler test problems with both
 the exact and the numerical solver, prints a short error report and optionally
 writes
 a comparison figure.
@@ -79,7 +79,7 @@ def build_parser():
     parser.add_argument(
         "--first-order",
         action="store_true",
-        help="drop the second-order TVD correction (plain Roe upwind)",
+        help="use first order for the selected TVD flux (ignored by ADER2)",
     )
     parser.add_argument(
         "--no-entropy-fix",

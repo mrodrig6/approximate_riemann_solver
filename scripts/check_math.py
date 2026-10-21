@@ -5,17 +5,15 @@ Run from the repository root::
 
     python scripts/check_math.py
 
-GitHub's Markdown maths support is noticeably more restrictive than a LaTeX
-document, and the failure mode is silent: an unsupported construct renders as
-raw LaTeX in the middle of a sentence rather than raising anything.  This
-script encodes the rules documented in ``docs/index.md`` so a regression is
-caught before it is published.
+This structural checker enforces the portable syntax documented in
+``docs/reference/documentation.md``. It does not invoke TeX or validate browser
+rendering. Unsupported constructs can render as literal text without raising
+an error, so keep renderer-independent restrictions explicit.
 
 Each rule below exists because of something that does not render:
 
-* display maths must be a self-contained ``$$ ... $$`` on its own line, flush
-  left, with a blank line either side -- an indented ``$$`` inside a list item
-  is not recognised as maths at all;
+* display maths must be flush left, with blank lines around the block; either
+  use a self-contained ``$$ ... $$`` line or separate ``$$`` delimiter lines;
 * no multi-line environments (``aligned``, ``cases``, ``array``, ``bmatrix``),
   because they need ``\\`` row separators and the Markdown parser consumes
   backslashes first;
@@ -80,6 +78,7 @@ def check(path):
     lines = open(path).read().split("\n")
 
     incode = False
+    display = False
     for i, line in enumerate(lines, 1):
         if line.strip().startswith("```"):
             incode = not incode
@@ -87,6 +86,17 @@ def check(path):
         if incode:
             continue
         stripped = line.strip()
+        if stripped == "$$":
+            if line != stripped:
+                problems.append(f"{name}:{i}: display maths is indented")
+            if not display and i > 1 and lines[i - 2].strip():
+                problems.append(f"{name}:{i}: no blank line before display maths")
+            if display and i < len(lines) and lines[i].strip():
+                problems.append(f"{name}:{i}: no blank line after display maths")
+            display = not display
+            continue
+        if display:
+            continue
         if stripped.startswith("$$"):
             if line != stripped:
                 problems.append(
@@ -105,6 +115,9 @@ def check(path):
         if line.count("$") % 2:
             problems.append(f"{name}:{i}: unbalanced $ delimiters")
 
+    if display:
+        problems.append(f"{name}: unclosed display maths")
+
     text = open(path).read()
     for line_no, body in math_spans(text):
         for bad, why in FORBIDDEN.items():
@@ -120,7 +133,7 @@ def check(path):
 
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    targets = sorted(glob.glob(os.path.join(root, "docs", "*.md")))
+    targets = sorted(glob.glob(os.path.join(root, "docs", "**", "*.md"), recursive=True))
     targets.append(os.path.join(root, "README.md"))
 
     problems = []
